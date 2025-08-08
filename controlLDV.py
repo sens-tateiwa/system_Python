@@ -15,7 +15,7 @@ from Polytec_Python.acquisition_examples import changeBandwidthandRange
 
 
 
-def run(sample_count=2**17, new_bandwidth="100 kHz", new_range="10 mm/s"):
+def run(sample_count=2**17, new_bandwidth="1 kHz", new_range="10 mm/s"):
     ip_address = "192.168.137.1"
     rootDir = 'C:/Users/yuto/Documents/system_python/data/LDVdata'
     now = datetime.datetime.now()
@@ -73,8 +73,8 @@ def _update(sample_count,data_time_interval):
     signalProcessing.fftplt_indiv_endless(velocity, sample_count, data_time_interval)
 
 
-#run_endless 動作未確認
-def run_endless(sample_count=2**15, new_bandwidth="100 kHz", new_range="10 mm/s"):
+#run_endless 動作未確認(_update,fftplt?indiv_endlessも同様に動作未確認)
+def run_endless(sample_count=2**15, new_bandwidth="1 kHz", new_range="10 mm/s"):
     ip_address = "192.168.137.1"
         
     changeBandwidthandRange.run(ip_address, new_bandwidth,new_range)
@@ -88,13 +88,15 @@ def run_endless(sample_count=2**15, new_bandwidth="100 kHz", new_range="10 mm/s"
 
     interval_margin_ms = 500
     interval_ms = sample_count * data_time_interval * 1000 + interval_margin_ms
+    frames = itertools.count(0,0.1) #フレーム番号を無限に生成
+    frames = range(5)               #5回だけ実行、テスト用
 
     params = {
         'fig':fig,                                  #描画する下地
         'func':_update,                             #グラフを更新する関数
         'fargs':(sample_count,data_time_interval),  #関数の引数
         'interval':interval_ms,                     #更新間隔(ミリ秒)
-        'frames':itertools.count(0,0.1),            #フレーム番号を無限に生成
+        'frames':frames,                            #フレーム番号
     }
 
     anime = animation.FuncAnimation(**params)

@@ -221,11 +221,11 @@ def __acquire_data(communication, data_acquisition, daq_config, sample_count, ba
     return data
     # [acquire_data_to_csv]
 
-# [acquire_data_to_csv]
+# [acquire_data]
 def __acquire_data_ver2(communication, data_acquisition, daq_config, sample_count, base_samples_chunk_size,
                           timeout_ms):
     """
-    Acquire data over an existing Data Acquisition connection and write it to CSV files
+    Acquire data over an existing Data Acquisition connection
 
     Args:
         communication:              The DeviceCommunication instance
@@ -280,7 +280,7 @@ def __acquire_data_ver2(communication, data_acquisition, daq_config, sample_coun
     data_acquisition.stop_data_acquisition()
     #print("__acquire_data was done")
     return data
-    # [acquire_data_to_csv]
+    # [acquire_data]
 
 def __test_not_iq_mode(communication):
     """
