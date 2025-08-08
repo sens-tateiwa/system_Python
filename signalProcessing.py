@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.patheffects as path_effects
+from matplotlib.animation import FuncAnimation
+import random
+import collections
 from scipy import integrate
 import os
 
@@ -458,6 +461,57 @@ def convertVelocity2Displacement(file_name, sample_count, dt):
     #t = np.linspace(0,dt*sample_count,sample_count)
     plt.plot(t, displacement_list) # 入力信号
     plt.savefig(file_name+'_displacement.png')
+
+def fftplt_indiv_endless(data, sample_count, dt):
+    #rootdir = 'C:/Users/yuto/Documents/optotune/measuredData/'
+    #dt = 4.57142857*10**(-6)#得られたデータのtimestampの間隔
+
+    #N = 1000#run2のsmplecountに合わせる
+    N = sample_count
+
+    text = data.split('\n')
+    
+    for j in range(0,sample_count,1):
+        text[j] = text[j].split(";")
+    text = text[0:sample_count]
+    velocity_list = [float(x[1]) for x in text]
+    displacement = 0
+    displacement_list = []
+
+    displacement += (0 + velocity_list[0])*dt/2
+    displacement_list.append(displacement)
+    for j in range(1,sample_count,1):
+        displacement += (velocity_list[j-1] + velocity_list[j])*dt/2
+        displacement_list.append(displacement)
+
+    X=np.fft.fft(displacement_list)
+
+    #print(f"X[0] = {X[0]}")
+    X[0] = 0
+            
+    f = np.fft.fftfreq(N,dt)
+                    
+    #plt.rcParams["font.size"]=60
+
+    plt.xlabel('time [s]')
+    plt.ylabel('Displacement [m]')
+    plt.ylim(-0.012,0.012)
+    #plt.tick_params(labelsize=45)
+    plt.subplots_adjust(0.2,0.15,0.97,0.95)
+    t = np.linspace(0,dt*N,N)
+    plt.plot(t, displacement_list) # 入力信号
+
+    
+    plt.xlabel('Frequency [Hz]')
+    plt.xlim(f[0],600)
+    #plt.xlim(f[1],50)
+    plt.ylabel('Amplitude')
+    plt.ylim(0,0.3)
+    #plt.tick_params(labelsize=45)
+    plt.subplots_adjust(0.2,0.15,0.97,0.95)
+    #plt.plot(f[1:int(N/2)],np.abs((X)/(N/2))[1:int(N/2)])
+    plt.plot(f[0:int(N/2)],np.abs((X)/np.sqrt(N))[0:int(N/2)])
+
     
 
 
