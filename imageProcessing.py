@@ -153,7 +153,7 @@ def TemplateMatching(image, image_template, isPlotMatchpoint=False):
     ROI_y_end = height#int(height*0.75)
     """
 
-    margin_rate = 0.15
+    margin_rate = 0.15#注目領域を制限する、0で制限なし、全体のmargin_rateの割合分の上下左右領域を無視してマッチングする
     #margin_rate = 0
 
     ROI_x_start = int(width*margin_rate)
@@ -171,13 +171,16 @@ def TemplateMatching(image, image_template, isPlotMatchpoint=False):
 
     match_center = (int(match_x+to_templateimage_center_x)+ROI_x_start, int(match_y+to_templateimage_center_y)+ROI_y_start)#検出した指先位置の中心(x,y)
 
+    #テンプレートマッチングした最大値の位置ではきれいに指先中心に一致しなかったため処理を追加した
+    #以下、追加した処理
+    #テンプレートマッチングのマッチ率が閾値以上の点の中心を計算し、その中心とマッチングの最大値の位置の中点をトラッキング点とした
     threshold = 0.2
     y_indices, x_indices = np.where(match_result > threshold)
     center_x = np.mean(x_indices)
     center_y = np.mean(y_indices)
-    try:
+    try:#閾値以上の点の中心が計算できる時、中心と最大値の位置の中点をマッチ位置(トラッキング点)とする
         center = (int(center_x+to_templateimage_center_x)+ROI_x_start, int(center_y+to_templateimage_center_y)+ROI_y_start)  #マッチング結果の閾値以上の重心
-    except:
+    except:#閾値以上の点の中心が計算できない時、マッチの最大値の位置をそのままマッチ位置とする
         center = match_center
     match = (int((match_center[0]+center[0])/2), int((match_center[1]+center[1])/2))
 
@@ -212,20 +215,25 @@ def calculateCentor2FingerDistance(image, image_template, laser_point, isPlotMat
 
 def calculateLaserPoint(file_name):
     image = cv2.imread(file_name, cv2.IMREAD_COLOR)
-    
-    blue, green, red_grayscale = cv2.split(image)
+    image_gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
 
-    #min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(red_grayscale)
-    _,image_binary = cv2.threshold(red_grayscale,0,255,cv2.THRESH_BINARY|cv2.THRESH_OTSU)
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(image_gray)
+    """
+    _,image_binary = cv2.threshold(image_gray,0,255,cv2.THRESH_BINARY|cv2.THRESH_OTSU)
     image_binary = changeScale(image_binary) 
-    #cv2.imshow('image_binary',image_binary)
-    #cv2.waitKey(0)
+    
     y_indices, x_indices = np.where(image_binary == 255)
+    """
+    image_gray = changeScale(image_gray) 
+    
+    y_indices, x_indices = np.where(image_gray >= max_val-50)
     center_x = np.mean(x_indices)
     center_y = np.mean(y_indices)
     center = (int(center_x), int(center_y))
     
     #cv2.circle(image, max_loc, 2, (0, 255, 0), 2)#ここで指定する画像はカラー画像
+    #cv2.imshow('image',image)
+    #cv2.waitKey(0)
 
     #cv2.circle(image, center, 2, (0, 0, 255), 2)
     #cv2.imshow('image',image)
@@ -241,17 +249,15 @@ if __name__ == "__main__":
     rootDir = 'C:/Users/yuto/Documents/system_python/data'
     dataName = '20250703_151737_list/image_353.png'
 
-    laserImage = 'Image__2025-07-14__13-03-18.png'
+    laserImage = 'Image__2025-08-25__14-35-50.png'
 
-    laser_point = calculateLaserPoint('C:/Users/yuto/Documents/system_python'+laserImage)
+    laser_point = calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
 
     #画像読み込み
-    image = cv2.imread(rootDir+'/'+dataName, cv2.IMREAD_COLOR)
-    image_template = createTemplateCircleImage(radius = 120)
-    #HoughTransform(image)
-    TemplateMatching(image,image_template)
-    image, _ = calculateCentor2FingerDistance(image,image_template, laser_point, isPlotMatchpoint=True)
-    print(image.shape)
+    image = cv2.imread('C:/Users/yuto/Documents/system_python/'+laserImage, cv2.IMREAD_COLOR)
+    image = changeScale(image) 
+    cv2.circle(image, laser_point, 3, (0, 0, 255), -2)
+    
     cv2.imshow("template image",image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()

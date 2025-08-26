@@ -23,7 +23,7 @@ def run():
     new_range="10 mm/s"
     isPlotMatchpoint=False
     rootDir = 'C:/Users/yuto/Documents/system_python'
-    laserImage = 'Image__2025-07-14__13-03-18.png'
+    laserImage = 'Image__2025-08-25__14-35-50.png'
 
     laser_point = imageProcessing.calculateLaserPoint(rootDir+'/'+laserImage)
     input('start')
@@ -81,7 +81,8 @@ def run_endless():
     try:
         process=0
         #子プロセスの起動
-        #process = multiprocessing.Process(target=hoge,args=(ho,ge))
+        #process_queue = multiprocessing.Queue()#共有のQueueを作成
+        #process = multiprocessing.Process(target=hoge,args=(ho,ge,process_queue))#プロセスの引数に共有のQueueを渡す
         #process.start()
 
         while True:#親プロセスの待機
@@ -91,6 +92,8 @@ def run_endless():
         #すべての子プロセスを強制終了
         #process.terminate()
         #process.join()
+
+        #process_queueから最新のデータを取り出す処理（またはいくつかのデータを順に取り出してappendでlistにまとめる処理）をここにかく
 
 if __name__ == "__main__":
     #print("Hello world")

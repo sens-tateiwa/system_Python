@@ -164,11 +164,14 @@ def getCameraImage(event, laser_point, timeout_ms,timelimit_s=10,isPlotMatchpoin
     cv2.destroyAllWindows()
     return
 
+
+#取得した録画を画像に分割し、fpsやマッチングの特徴点を描画するか否かを変更して再度動画にまとめる
+#分割した画像も保存する
 if __name__ == "__main__":
     timeout_ms = 5
     timelimit_s = 10
     #getCameraImage(timelimit_s,timeout_ms)
-    videoname = "20250725_141834"
+    videoname = "20250825_150157"
     videoDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'.mp4'
     rootDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'_list'
     try:
@@ -177,9 +180,9 @@ if __name__ == "__main__":
         pass
 
     
-    laserImage = 'Image__2025-07-14__13-03-18.png'
+    laserImage = 'Image__2025-08-25__14-35-50.png'
 
-    imageProcessing.calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
+    laser_point = imageProcessing.calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
 
     fps = divisionVideo2Image(timeout_ms,timelimit_s,videoDir,rootDir)
     print(f"fps is {fps}")
@@ -193,7 +196,7 @@ if __name__ == "__main__":
     for file in files:
         image = cv2.imread(file, cv2.IMREAD_COLOR)
         #image = imageProcessing.changeScale(image)
-        image,_ = imageProcessing.calculateCentor2FingerDistance(image,image_template,isPlotMatchpoint=True)
+        image,_ = imageProcessing.calculateCentor2FingerDistance(image,image_template,laser_point,isPlotMatchpoint=True)
         image_list.append(image)
 
     createVideo(image_list,fps,result_videoName)
