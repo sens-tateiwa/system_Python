@@ -17,7 +17,7 @@ import imageProcessing
 import controlMirror
 import sharedFlag
 
-#videoDirで指定した動画を分割しrootDIrに複数枚の画像として保存する
+#videoDirで指定した動画を分割しrootDirに複数枚の画像として保存する
 def divisionVideo2Image(timeout_ms,timelimit_s,videoDir,rootDir):
     #ビデオの読み込み
     cap = cv2.VideoCapture(videoDir)
@@ -121,8 +121,12 @@ def getCameraImage(event, laser_point, timeout_ms,timelimit_s=10,isPlotMatchpoin
 
             image_list.append(image)
             
-            X += distance[0]*intervalX/10*7
-            Y -= distance[1]*intervalY/10*7
+            #X += distance[0]*intervalX/10*7
+            #Y -= distance[1]*intervalY/10*7
+
+            X += distance[0]*intervalX/10*5
+            Y -= distance[1]*intervalY/10*5
+
             """
             #ラグ確認用、円起動
             global count
@@ -171,7 +175,7 @@ if __name__ == "__main__":
     timeout_ms = 5
     timelimit_s = 10
     #getCameraImage(timelimit_s,timeout_ms)
-    videoname = "20250825_150157"
+    videoname = "20250828_162336"
     videoDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'.mp4'
     rootDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'_list'
     try:
@@ -180,7 +184,7 @@ if __name__ == "__main__":
         pass
 
     
-    laserImage = 'Image__2025-08-25__14-35-50.png'
+    laserImage = 'Image__2025-08-28__15-47-29.png'
 
     laser_point = imageProcessing.calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
 

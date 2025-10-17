@@ -464,9 +464,7 @@ def convertVelocity2Displacement(file_name, sample_count, dt):
 
 def fftplt_indiv_endless(data, sample_count, dt):
     #rootdir = 'C:/Users/yuto/Documents/optotune/measuredData/'
-    #dt = 4.57142857*10**(-6)#得られたデータのtimestampの間隔
 
-    #N = 1000#run2のsmplecountに合わせる
     N = sample_count
 
     text = data.split('\n')
@@ -486,33 +484,17 @@ def fftplt_indiv_endless(data, sample_count, dt):
 
     X=np.fft.fft(displacement_list)
 
-    #print(f"X[0] = {X[0]}")
     X[0] = 0
             
     f = np.fft.fftfreq(N,dt)
-                    
-    #plt.rcParams["font.size"]=60
 
-    plt.xlabel('time [s]')
-    plt.ylabel('Displacement [m]')
-    plt.ylim(-0.012,0.012)
-    #plt.tick_params(labelsize=45)
-    plt.subplots_adjust(0.2,0.15,0.97,0.95)
-    t = np.linspace(0,dt*N,N)
-    plt.plot(t, displacement_list) # 入力信号
-
-    
     plt.xlabel('Frequency [Hz]')
     plt.xlim(f[0],600)
-    #plt.xlim(f[1],50)
     plt.ylabel('Amplitude')
     plt.ylim(0,0.3)
-    #plt.tick_params(labelsize=45)
     plt.subplots_adjust(0.2,0.15,0.97,0.95)
-    #plt.plot(f[1:int(N/2)],np.abs((X)/(N/2))[1:int(N/2)])
     plt.plot(f[0:int(N/2)],np.abs((X)/np.sqrt(N))[0:int(N/2)])
 
-    
 
 
 if __name__ == "__main__":

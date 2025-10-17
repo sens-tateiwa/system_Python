@@ -153,7 +153,7 @@ def TemplateMatching(image, image_template, isPlotMatchpoint=False):
     ROI_y_end = height#int(height*0.75)
     """
 
-    margin_rate = 0.15#注目領域を制限する、0で制限なし、全体のmargin_rateの割合分の上下左右領域を無視してマッチングする
+    margin_rate = 0.12#注目領域を制限する、0で制限なし、全体のmargin_rateの割合分の上下左右領域を無視してマッチングする
     #margin_rate = 0
 
     ROI_x_start = int(width*margin_rate)
@@ -171,6 +171,7 @@ def TemplateMatching(image, image_template, isPlotMatchpoint=False):
 
     match_center = (int(match_x+to_templateimage_center_x)+ROI_x_start, int(match_y+to_templateimage_center_y)+ROI_y_start)#検出した指先位置の中心(x,y)
 
+    """
     #テンプレートマッチングした最大値の位置ではきれいに指先中心に一致しなかったため処理を追加した
     #以下、追加した処理
     #テンプレートマッチングのマッチ率が閾値以上の点の中心を計算し、その中心とマッチングの最大値の位置の中点をトラッキング点とした
@@ -183,7 +184,7 @@ def TemplateMatching(image, image_template, isPlotMatchpoint=False):
     except:#閾値以上の点の中心が計算できない時、マッチの最大値の位置をそのままマッチ位置とする
         center = match_center
     match = (int((match_center[0]+center[0])/2), int((match_center[1]+center[1])/2))
-
+    """
 
 
     #マッチに関する座標やテンプレートイメージの重ね合わせ描画
@@ -191,9 +192,9 @@ def TemplateMatching(image, image_template, isPlotMatchpoint=False):
     if(isPlotMatchpoint):
         cv2.circle(image, match_center, to_templateimage_center_x, (0, 255, 0), 1) #緑の縁でテンプレートマッチングした位置を表示
         cv2.circle(image, match_center, 2, (0, 255, 0), 2)      #緑の点でテンプレートマッチングした最大値の座標を表示
-        cv2.circle(image, center, 2, (255, 0, 0), 2)            #青い点でテンプレートマッチングした閾値以上の点の重心を表示
+        #cv2.circle(image, center, 2, (255, 0, 0), 2)            #青い点でテンプレートマッチングした閾値以上の点の重心を表示
     
-    return image, match
+    return image, match_center
 
 
 def calculateCentor2FingerDistance(image, image_template, laser_point, isPlotMatchpoint=False):
@@ -226,7 +227,7 @@ def calculateLaserPoint(file_name):
     """
     image_gray = changeScale(image_gray) 
     
-    y_indices, x_indices = np.where(image_gray >= max_val-50)
+    y_indices, x_indices = np.where(image_gray >= max_val-10)
     center_x = np.mean(x_indices)
     center_y = np.mean(y_indices)
     center = (int(center_x), int(center_y))
@@ -249,7 +250,7 @@ if __name__ == "__main__":
     rootDir = 'C:/Users/yuto/Documents/system_python/data'
     dataName = '20250703_151737_list/image_353.png'
 
-    laserImage = 'Image__2025-08-25__14-35-50.png'
+    laserImage = 'Image__2025-08-28__15-47-29.png'
 
     laser_point = calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
 

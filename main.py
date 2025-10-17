@@ -23,7 +23,7 @@ def run():
     new_range="10 mm/s"
     isPlotMatchpoint=False
     rootDir = 'C:/Users/yuto/Documents/system_python'
-    laserImage = 'Image__2025-08-25__14-35-50.png'
+    laserImage = 'Image__2025-08-28__15-47-29.png'
 
     laser_point = imageProcessing.calculateLaserPoint(rootDir+'/'+laserImage)
     input('start')

@@ -62,7 +62,7 @@ def run(sample_count=2**17, new_bandwidth="1 kHz", new_range="10 mm/s"):
 
     return file_name
 
-def _update(sample_count,data_time_interval): 
+def _update(frame,sample_count,data_time_interval): 
     ip_address = "192.168.137.1"
 
     velocity = ""
