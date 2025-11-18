@@ -86,7 +86,8 @@ def getCameraImage(event, laser_point, timeout_ms,timelimit_s=10,isPlotMatchpoin
     exposuretime_ms = 1.5
     camera.ExposureTime.SetValue(exposuretime_ms*1000)
 
-    camera.Gain.SetValue(10.0)
+    #camera.Gain.SetValue(10.0)
+    camera.Gain.SetValue(18.0)
 
     image_list = []
 
@@ -102,7 +103,8 @@ def getCameraImage(event, laser_point, timeout_ms,timelimit_s=10,isPlotMatchpoin
 
     radius = 120    
     image_template = imageProcessing.createTemplateCircleImage(radius)
-    
+
+
     #撮影を開始---
     event.set()
     #sharedFlag.set_CameraGrabbing_flag(True)
@@ -124,7 +126,10 @@ def getCameraImage(event, laser_point, timeout_ms,timelimit_s=10,isPlotMatchpoin
             #X += distance[0]*intervalX/10*7
             #Y -= distance[1]*intervalY/10*7
 
-            X += distance[0]*intervalX/10*5
+            #X += distance[0]*intervalX/10*5
+            #Y -= distance[1]*intervalY/10*5
+
+            X -= distance[0]*intervalX/10*5
             Y -= distance[1]*intervalY/10*5
 
             """
@@ -169,13 +174,109 @@ def getCameraImage(event, laser_point, timeout_ms,timelimit_s=10,isPlotMatchpoin
     return
 
 
+def getCameraImage_endless(event, isCameraGrabing, laser_point, timeout_ms,timelimit_s=30,isPlotMatchpoint=False):
+    # トランスポートレイヤーインスタンスを取得
+    tl_factory = pylon.TlFactory.GetInstance()
+
+    # InstantCameraオブジェクトの作成
+    camera = pylon.InstantCamera()
+
+    # 最初に見つかったデバイスをアタッチ
+    camera.Attach(tl_factory.CreateFirstDevice())
+
+    # カメラを開く
+    camera.Open()
+
+    # 露光時間を設定（単位はマイクロ秒）
+    exposuretime_ms = 1.5
+    camera.ExposureTime.SetValue(exposuretime_ms*1000)
+
+    #camera.Gain.SetValue(10.0)
+    camera.Gain.SetValue(18.0)
+
+    image_list = []
+
+    X=0
+    Y=0
+    intervalX = 0.01/126
+    intervalY = 0.01/126
+    mre2 = controlMirror.setMirror()
+    controlMirror.changeAngle(X,Y,mre2)
+
+    now = datetime.datetime.now()
+    videoname = now.strftime("%Y%m%d_%H%M%S")
+
+    radius = 120    
+    image_template = imageProcessing.createTemplateCircleImage(radius)
+
+    isCameraGrabing = True
+
+    #撮影を開始---
+    event.set()
+    #sharedFlag.set_CameraGrabbing_flag(True)
+    camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+    t1 = time.time()
+    while camera.IsGrabbing():                                                  #カメラの起動
+        grab = camera.RetrieveResult(timeout_ms, pylon.TimeoutHandling_ThrowException) #timeout_msミリ秒のタイムアウト #起動しているカメラから画像を撮影
+        if grab and grab.GrabSucceeded():
+            image = grab.GetArray()     #撮影した画像を配列に格納
+            
+
+            #取得した画像の処理を実行
+            image = imageProcessing.changeScale(image)
+            image,distance = imageProcessing.calculateCentor2FingerDistance(image,  image_template, laser_point, isPlotMatchpoint)
+
+            image_list.append(image)
+            
+            #X -= distance[0]*intervalX/10*5
+            #Y -= distance[1]*intervalY/10*5
+
+            
+            #ラグ確認用、円起動
+            global count
+            X = 0.1*math.cos(count/100*math.pi)
+            Y = 0.1*math.sin(count/100*math.pi)
+            count +=1
+            
+            
+            
+            controlMirror.changeAngle(X,Y,mre2)
+
+            grab.Release()
+        t2 = time.time()
+        #print(f"isDataAcquiringFlag:{sharedFlag.isDataAcquiring}")
+        #cv2.imwrite('C:/Users/yuto/Documents/system_python/data/'+str(datetime.datetime.now())+'.png', img)    #取得した配列を名前を付けてコンピュータに保存
+        if((not isCameraGrabing)or((t2-t1)>timelimit_s)):#timelimit秒後
+            camera.StopGrabbing()
+            print("camera stop grabbing")
+        #sharedFlag.set_CameraGrabbing_flag(True)
+        
+    #sharedFlag.set_CameraGrabbing_flag(False)    
+    #---撮影の終了
+    print(f"cameragrab start time is {t1}")
+    print(f"cameragrab end time is {t2}")
+    controlMirror.changeAngle(0,0,mre2)
+    alpha_ms = 0.4  #pylon Viewerから推定した読み取り時間＋その他の内部処理時間
+    fps = int(min(525, 1000/(exposuretime_ms+alpha_ms)))
+    fps = int(len(image_list)/(t2-t1))
+    #fps = int(fps/10)
+    print("create video")
+    createVideo(image_list,fps,videoname)
+    print("created video")
+    print("videoname is "+videoname)
+
+    #カメラにおける全ての処理が終了したのでカメラを閉じる
+    camera.Close()
+    cv2.destroyAllWindows()
+    return
+
 #取得した録画を画像に分割し、fpsやマッチングの特徴点を描画するか否かを変更して再度動画にまとめる
 #分割した画像も保存する
 if __name__ == "__main__":
     timeout_ms = 5
     timelimit_s = 10
     #getCameraImage(timelimit_s,timeout_ms)
-    videoname = "20250828_162336"
+    videoname = "20251113_163256"
     videoDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'.mp4'
     rootDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'_list'
     try:
@@ -184,7 +285,7 @@ if __name__ == "__main__":
         pass
 
     
-    laserImage = 'Image__2025-08-28__15-47-29.png'
+    laserImage = 'Image__2025-11-13__16-05-34.png'
 
     laser_point = imageProcessing.calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
 

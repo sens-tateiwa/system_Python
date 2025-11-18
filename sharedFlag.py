@@ -1,5 +1,6 @@
 import cv2
 import winsound
+import time
 
 DataAcquiring = False
 CameraGrabbing = False
@@ -29,4 +30,13 @@ def isCameraGrabbing():
     return CameraGrabbing
 
 laser_point =(0,0)
+
+def test(event, theta):
+    event.clear()
+    for i in range(5):
+        print(i+theta*10)
+        time.sleep(1)
+    event.set()
+
+
 

@@ -106,9 +106,9 @@ def createTemplateCircleImage(radius=120):
     else:
         image_template = image_template
 
-    cv2.circle(image_template,(int(width/2),int(height/2)),radius,(255,255,255),thickness=-1)#白色
+    cv2.circle(image_template,(int(width/2),int(height/2)),radius,(255,255,255),thickness=-1)#白色の円
     #反転
-    image_template = cv2.bitwise_not(image_template)#白背景に黒色の円
+    #image_template = cv2.bitwise_not(image_template)#白背景に黒色の円
     #cv2.imshow("template image",image_template)
     #cv2.waitKey(0)
     #cv2.destroyAllWindows()
@@ -154,7 +154,7 @@ def TemplateMatching(image, image_template, isPlotMatchpoint=False):
     """
 
     margin_rate = 0.12#注目領域を制限する、0で制限なし、全体のmargin_rateの割合分の上下左右領域を無視してマッチングする
-    #margin_rate = 0
+    margin_rate = 0
 
     ROI_x_start = int(width*margin_rate)
     ROI_x_end = int(width*(1-margin_rate))
@@ -185,7 +185,6 @@ def TemplateMatching(image, image_template, isPlotMatchpoint=False):
         center = match_center
     match = (int((match_center[0]+center[0])/2), int((match_center[1]+center[1])/2))
     """
-
 
     #マッチに関する座標やテンプレートイメージの重ね合わせ描画
     #ここで指定する画像はカラー画像
@@ -250,14 +249,23 @@ if __name__ == "__main__":
     rootDir = 'C:/Users/yuto/Documents/system_python/data'
     dataName = '20250703_151737_list/image_353.png'
 
-    laserImage = 'Image__2025-08-28__15-47-29.png'
+    laserImage = 'Image__2025-11-13__16-05-34.png'
+
+    OrizinalImage = 'Image__2025-11-11__10-36-38.png'
 
     laser_point = calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
 
     #画像読み込み
-    image = cv2.imread('C:/Users/yuto/Documents/system_python/'+laserImage, cv2.IMREAD_COLOR)
-    image = changeScale(image) 
-    cv2.circle(image, laser_point, 3, (0, 0, 255), -2)
+    #image = cv2.imread('C:/Users/yuto/Documents/system_python/'+laserImage, cv2.IMREAD_COLOR)
+    image = cv2.imread("C:/Users/yuto/Downloads/"+OrizinalImage, cv2.IMREAD_COLOR)
+    image = changeScale(image)
+
+    radius = 120    
+    image_template = createTemplateCircleImage(radius)
+
+    image,distance = calculateCentor2FingerDistance(image,  image_template, laser_point, isPlotMatchpoint=True)
+
+    cv2.imwrite("C:/Users/yuto/Downloads/matching_"+OrizinalImage,image)
     
     cv2.imshow("template image",image)
     cv2.waitKey(0)

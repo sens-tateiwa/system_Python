@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('Agg') # GUIを使わないAggバックエンドを指定
+matplotlib.use('TkAgg') # GUIを使わないAggバックエンドを指定
 
 import numpy as np
 import matplotlib.pyplot as plt
