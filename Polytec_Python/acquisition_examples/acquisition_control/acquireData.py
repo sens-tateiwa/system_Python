@@ -147,7 +147,9 @@ def __write_chunk_data(active_channels, base_sample_count, frequency_factor, chu
                     if not channel["Samples"][index]:
                         raise RuntimeError("Data packet lost")
                 elif channel["Type"] == ChannelType.Velocity:
-                    data += f";{channel['ScaleFactor'] * channel['Samples'][index]:.8e}"
+                    #data += f";{channel['ScaleFactor'] * channel['Samples'][index]:.8e}"#以前はこれ「;」が無駄に挿入されている
+                    data += f"{channel['ScaleFactor'] * channel['Samples'][index]:.8e}"
+
 
             data += '\n'
     #print("__write_chunk_data was done")

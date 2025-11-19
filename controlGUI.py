@@ -5,7 +5,7 @@ class ButtonWindow:
         self.cameraFinishFlag = cameraGrabingFinish
 
     def on_button1_click(self):
-        print("ボタン1クリック")
+        print("終了")
         self.cameraFinishFlag.set()
 
     def on_button2_click(self):
@@ -15,10 +15,10 @@ class ButtonWindow:
         import tkinter as tk
         self.root = tk.Tk()
         self.root.title("test")
-        button1 = tk.Button(self.root, text="please click1",command=self.on_button1_click)
+        button1 = tk.Button(self.root, text="終了",command=self.on_button1_click)
         button1.pack()
 
-        button2 = tk.Button(self.root, text="please click2",command=self.on_button2_click)
+        button2 = tk.Button(self.root, text="一時停止",command=self.on_button2_click)
         button2.pack()
 
         self.root.mainloop()

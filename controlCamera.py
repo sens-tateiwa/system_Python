@@ -57,7 +57,7 @@ def createVideo(image_list,fps,videoName):#fpsはフレームレート
 
     size = (width, height)
     name = videoName+'.mp4'
-    
+
     out = cv2.VideoWriter('C:/Users/yuto/Documents/system_python/data/'+name, cv2.VideoWriter_fourcc(*'mp4v'), fps, size,isColor=True)
 
     for image in image_list:
@@ -103,7 +103,6 @@ def getCameraImage(event, laser_point, timeout_ms,timelimit_s=10,isPlotMatchpoin
 
     radius = 120    
     image_template = imageProcessing.createTemplateCircleImage(radius)
-
 
     #撮影を開始---
     event.set()
@@ -174,7 +173,7 @@ def getCameraImage(event, laser_point, timeout_ms,timelimit_s=10,isPlotMatchpoin
     return
 
 
-def getCameraImage_endless(event, isCameraGrabing, laser_point, timeout_ms,timelimit_s=30,isPlotMatchpoint=False):
+def getCameraImage_endless(startLDVFlag,cameraGrabingFinish, laser_point, timeout_ms,timelimit_s=30,isPlotMatchpoint=False):
     # トランスポートレイヤーインスタンスを取得
     tl_factory = pylon.TlFactory.GetInstance()
 
@@ -191,7 +190,6 @@ def getCameraImage_endless(event, isCameraGrabing, laser_point, timeout_ms,timel
     exposuretime_ms = 1.5
     camera.ExposureTime.SetValue(exposuretime_ms*1000)
 
-    #camera.Gain.SetValue(10.0)
     camera.Gain.SetValue(18.0)
 
     image_list = []
@@ -209,14 +207,12 @@ def getCameraImage_endless(event, isCameraGrabing, laser_point, timeout_ms,timel
     radius = 120    
     image_template = imageProcessing.createTemplateCircleImage(radius)
 
-    isCameraGrabing = True
 
     #撮影を開始---
-    event.set()
-    #sharedFlag.set_CameraGrabbing_flag(True)
+    startLDVFlag.set()
     camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
     t1 = time.time()
-    while camera.IsGrabbing():                                                  #カメラの起動
+    while (not cameraGrabingFinish.is_set()):                                                  #カメラの起動
         grab = camera.RetrieveResult(timeout_ms, pylon.TimeoutHandling_ThrowException) #timeout_msミリ秒のタイムアウト #起動しているカメラから画像を撮影
         if grab and grab.GrabSucceeded():
             image = grab.GetArray()     #撮影した画像を配列に格納
@@ -228,9 +224,7 @@ def getCameraImage_endless(event, isCameraGrabing, laser_point, timeout_ms,timel
 
             image_list.append(image)
             
-            #X -= distance[0]*intervalX/10*5
-            #Y -= distance[1]*intervalY/10*5
-
+            
             
             #ラグ確認用、円起動
             global count
@@ -238,20 +232,20 @@ def getCameraImage_endless(event, isCameraGrabing, laser_point, timeout_ms,timel
             Y = 0.1*math.sin(count/100*math.pi)
             count +=1
             
-            
+            #X -= distance[0]*intervalX/10*5
+            #Y -= distance[1]*intervalY/10*5
             
             controlMirror.changeAngle(X,Y,mre2)
 
             grab.Release()
         t2 = time.time()
-        #print(f"isDataAcquiringFlag:{sharedFlag.isDataAcquiring}")
+
         #cv2.imwrite('C:/Users/yuto/Documents/system_python/data/'+str(datetime.datetime.now())+'.png', img)    #取得した配列を名前を付けてコンピュータに保存
-        if((not isCameraGrabing)or((t2-t1)>timelimit_s)):#timelimit秒後
+        if((t2-t1)>timelimit_s):#timelimit秒後
             camera.StopGrabbing()
+            cameraGrabingFinish.set()
             print("camera stop grabbing")
-        #sharedFlag.set_CameraGrabbing_flag(True)
-        
-    #sharedFlag.set_CameraGrabbing_flag(False)    
+
     #---撮影の終了
     print(f"cameragrab start time is {t1}")
     print(f"cameragrab end time is {t2}")

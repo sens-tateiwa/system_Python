@@ -65,39 +65,31 @@ def event_controlLDV_endless(event, sample_count, new_bandwidth, new_range):
 #動作未確認
 def run_endless():
     timeout_ms = 5
-    timelimit_s = 10
-    sample_count=2**18 #2^17 = 131,072
+    timelimit_s = 30
+    sample_count=2**15 #2^17 = 131,072
     new_bandwidth="1 kHz"
     new_range="10 mm/s"
     isPlotMatchpoint=False
     rootDir = 'C:/Users/yuto/Documents/system_python'
     laserImage = 'Image__2025-11-13__16-05-34.png'
+    laser_point = imageProcessing.calculateLaserPoint(rootDir+'/'+laserImage)
 
+    startLDV = multiprocessing.Event()           #LDVの計測を開始させるフラグ、カメラ追従が起動したらsetする
     cameraGrabingFinish = multiprocessing.Event()#カメラの連続撮影が終了したかどうかのフラグ
 
-    """
-    isCameraGrabing = multiprocessing.Value('i',False)
-
-    laser_point = imageProcessing.calculateLaserPoint(rootDir+'/'+laserImage)
-    input('start')
-    
-    controlCameraProcess = multiprocessing.Process(target=controlCamera.getCameraImage_endless, args=(event, isCameraGrabing, laser_point,timeout_ms,timelimit_s,isPlotMatchpoint))
-    event_controlLDVProcess = multiprocessing.Process(target=event_controlLDV_endless, args=(event, sample_count, new_bandwidth, new_range))
-
-    controlCameraProcess.start()
-    event_controlLDVProcess.start()
-
-    controlCameraProcess.join()
-    event_controlLDVProcess.join()
-    """
     try:
-        dataAquisition = controlLDV.DataAquisition(cameraGrabingFinish,new_bandwidth,new_range)
-        process=multiprocessing.Process(target=dataAquisition.animate, args=())
+        dataAquisition = controlLDV.DataAquisition(cameraGrabingFinish,sample_count,new_bandwidth,new_range)
+        dataAquisitioh_process=multiprocessing.Process(target=dataAquisition.animate, args=())
 
         buttonWindow = controlGUI.ButtonWindow(cameraGrabingFinish)
         button_process = multiprocessing.Process(target=buttonWindow.run,args=())
         
-        process.start()
+        controlCamera_process = multiprocessing.Process(target=controlCamera.getCameraImage_endless, args=(startLDV, cameraGrabingFinish, laser_point,timeout_ms,timelimit_s,isPlotMatchpoint))
+        controlCamera_process.start()
+
+        startLDV.wait()#カメラが起動するまで待機
+        
+        dataAquisitioh_process.start()
         button_process.start()
         #子プロセスの起動
         #process_queue = multiprocessing.Queue()#共有のQueueを作成
@@ -105,28 +97,28 @@ def run_endless():
         #process.start()
         
         cameraGrabingFinish.wait()
-        process.terminate()
-        process.join()
+        #dataAquisitioh_process.terminate()
+        #dataAquisitioh_process.join()
         button_process.terminate()
         button_process.join()
-        sys.exit(0)
+        #sys.exit(0)
         while True:#親プロセスの待機
             time.sleep(1)
     except KeyboardInterrupt:
-        isCameraGrabing = False
+        
         #すべての子プロセスを強制終了
 
-        process.terminate()
-        process.join()
+        dataAquisitioh_process.terminate()
+        dataAquisitioh_process.join()
         button_process.terminate()
         button_process.join()
         sys.exit(0)
 
         #process_queueから最新のデータを取り出す処理（またはいくつかのデータを順に取り出してappendでlistにまとめる処理）をここにかく
     except Exception as e:
-        if process and process.is_alive():
-            process.terminate()
-            process.join()
+        if dataAquisitioh_process and dataAquisitioh_process.is_alive():
+            dataAquisitioh_process.terminate()
+            dataAquisitioh_process.join()
 
 if __name__ == "__main__":
     #print("Hello world")

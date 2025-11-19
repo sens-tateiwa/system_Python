@@ -69,26 +69,16 @@ def run(sample_count=2**17, new_bandwidth="1 kHz", new_range="10 mm/s"):
 
     return file_name
 
-def _update(frame,sample_count,data_time_interval): 
-    ip_address = "192.168.137.1"
-
-    velocity = ""
-    velocity += acquire_streaming.run(ip_address,sample_count)
-
-    plt.cla()
-
-    signalProcessing.fftplt_indiv_endless(velocity, sample_count, data_time_interval)
-
 class DataAquisition:
-    def __init__(self,cameraGrabingFinish,new_bandwidth,new_range):
-        ip_address = "192.168.137.1"
+    def __init__(self,cameraGrabingFinish,sample_count, new_bandwidth,new_range):
+        self.ip_address = "192.168.137.1"
 
         self.cameraFinishFlag = cameraGrabingFinish
     
-        #changeBandwidthandRange.run(ip_address, new_bandwidth,new_range)
+        changeBandwidthandRange.run(self.ip_address, new_bandwidth,new_range)
 
         self.dt = 1/218750
-        self.N=2**17
+        self.N=sample_count
 
         self.theta = -10
         self.last_frame= -1
@@ -97,6 +87,7 @@ class DataAquisition:
         self.isnotDataAquiring.set()
 
         self.anime = None
+        self.velocity = ""
 
         #winsound.Beep(400,500)#400Hzを500ms
         #time.sleep(0.5)
@@ -104,19 +95,43 @@ class DataAquisition:
     def _init_draw(self):
         return self.line,
 
+    def _dataAquisition(self):
+        self.isnotDataAquiring.clear()#いらないかも
+        velocity = acquire_streaming.run(self.ip_address,self.N)
+        text = velocity.split('\n')
+        text = text[0:self.N]
+        #print(text)
+        
+        velocity_list = [float(x) for x in text]
+        displacement = 0
+        displacement_list = []
+
+        displacement += (0 + velocity_list[0])*self.dt/2
+        displacement_list.append(displacement)
+        for j in range(1,self.N,1):
+            displacement += (velocity_list[j-1] + velocity_list[j])*self.dt/2
+            displacement_list.append(displacement)
+        #print(displacement_list)
+        self.isnotDataAquiring.set()#いらないかも
+        return displacement_list
+        #return velocity_list
+
     def __update(self,frame,t,line):
         #if frame == self.last_frame:
         #    return line,
         if self.cameraFinishFlag.is_set() == True:
             print("アニメーションの終了")
             self.anime.event_source.stop()
+            return line,
         self.isnotDataAquiring.wait()#データを取得する関数の初めにisnotDataAquiring.clear()で__update()しないように待機させる、データを取得し終わるとisnotDataAquiring.set()で__update()を起動
         self.theta = 1 + frame
         print(f'theta = {self.theta}')
         
-        sharedFlag.test(self.isnotDataAquiring,self.theta) 
+        #sharedFlag.test(self.isnotDataAquiring,self.theta)#データ取得の関数のテスト
+        
+        #new_y_data = np.sin(t * self.theta)
+        new_y_data = self._dataAquisition()
 
-        new_y_data = np.sin(t * self.theta)
         line.set_ydata(new_y_data)
         self.last_frame = frame
         return line,
@@ -125,20 +140,23 @@ class DataAquisition:
         fig= plt.figure()
         plt.xlabel('time [s]')
         plt.ylabel('Velocity [m/s]')
+        plt.xlim(0,self.N*self.dt+0.01)
+        plt.ylim(-0.003,0.003)
+        """
         plt.xlim(0,6.3)
         plt.ylim(-1.2,1.2)
-        #plt.tick_params(labelsize=45)
-        #plt.subplots_adjust(0.2,0.15,0.97,0.95)
-        #t = np.linspace(0,self.dt*self.N,self.N)
         t = np.linspace(0,2*np.pi,100)
         initial_y = np.sin(t*self.theta)
         self.line, = plt.plot(t,initial_y)
+        """
+        t = np.linspace(0,self.dt*self.N,self.N)
+        initial_y = np.sin(t*self.theta)
+        self.line, = plt.plot(t,initial_y)
         #plt.plot(t, csv_velocity) # 入力信号
-        interval_margin_ms = 500
-        sample_count = self.N
+        interval_margin_ms = 1000
         data_time_interval = self.dt
-        #interval_ms = sample_count * data_time_interval * 1000 + interval_margin_ms
-        interval_ms = 100
+        interval_ms = self.N * self.dt * 1000 + interval_margin_ms
+        #interval_ms = 100
         frames = itertools.count(0,0.1) #フレーム番号を無限に生成
         #frames = range(5)               #5回だけ実行、テスト用
 
@@ -157,37 +175,6 @@ class DataAquisition:
         
         plt.show()
 
-
-#run_endless 動作未確認(_update,fftplt?indiv_endlessも同様に動作未確認)
-def run_endless(sample_count=2**15, new_bandwidth="1 kHz", new_range="10 mm/s"):
-    ip_address = "192.168.137.1"
-    
-    changeBandwidthandRange.run(ip_address, new_bandwidth,new_range)
-
-    data_time_interval = 1/218750
-
-    #winsound.Beep(400,500)#400Hzを500ms
-    #time.sleep(0.5)
-
-    fig= plt.figure()
-
-    interval_margin_ms = 500
-    interval_ms = sample_count * data_time_interval * 1000 + interval_margin_ms
-    frames = itertools.count(0,0.1) #フレーム番号を無限に生成
-    frames = range(5)               #5回だけ実行、テスト用
-
-    params = {
-        'fig':fig,                                  #描画する下地
-        'func':_update,                             #グラフを更新する関数
-        'fargs':(sample_count,data_time_interval),  #関数の引数
-        'interval':interval_ms,                     #更新間隔(ミリ秒)
-        'frames':frames,                            #フレーム番号
-    }
-
-    anime = animation.FuncAnimation(**params)
-
-    plt.show()
-    #plt.close()
 
 if __name__ == "__main__":
     ip_address = "192.168.137.1"

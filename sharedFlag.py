@@ -31,15 +31,15 @@ def isCameraGrabbing():
 
 laser_point =(0,0)
 
-def test(event, theta):
-    event.clear()
+def test(notDataAquiringevent, theta):
+    notDataAquiringevent.clear()
     """
     for i in range(3):
         print(f"theta:{theta}, i:{i}")
         time.sleep(1)
     """
     time.sleep(0.5)
-    event.set()
+    notDataAquiringevent.set()
 
 
 
