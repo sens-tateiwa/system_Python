@@ -80,8 +80,10 @@ def _update(frame,sample_count,data_time_interval):
     signalProcessing.fftplt_indiv_endless(velocity, sample_count, data_time_interval)
 
 class DataAquisition:
-    def __init__(self,new_bandwidth,new_range):
+    def __init__(self,cameraGrabingFinish,new_bandwidth,new_range):
         ip_address = "192.168.137.1"
+
+        self.cameraFinishFlag = cameraGrabingFinish
     
         #changeBandwidthandRange.run(ip_address, new_bandwidth,new_range)
 
@@ -94,6 +96,8 @@ class DataAquisition:
         self.isnotDataAquiring = multiprocessing.Event()
         self.isnotDataAquiring.set()
 
+        self.anime = None
+
         #winsound.Beep(400,500)#400Hzを500ms
         #time.sleep(0.5)
 
@@ -103,6 +107,9 @@ class DataAquisition:
     def __update(self,frame,t,line):
         #if frame == self.last_frame:
         #    return line,
+        if self.cameraFinishFlag.is_set() == True:
+            print("アニメーションの終了")
+            self.anime.event_source.stop()
         self.isnotDataAquiring.wait()#データを取得する関数の初めにisnotDataAquiring.clear()で__update()しないように待機させる、データを取得し終わるとisnotDataAquiring.set()で__update()を起動
         self.theta = 1 + frame
         print(f'theta = {self.theta}')
@@ -132,8 +139,8 @@ class DataAquisition:
         data_time_interval = self.dt
         #interval_ms = sample_count * data_time_interval * 1000 + interval_margin_ms
         interval_ms = 100
-        #frames = itertools.count(0,0.1) #フレーム番号を無限に生成
-        frames = range(5)               #5回だけ実行、テスト用
+        frames = itertools.count(0,0.1) #フレーム番号を無限に生成
+        #frames = range(5)               #5回だけ実行、テスト用
 
         params = {
             'fig':fig,                                  #描画する下地
@@ -146,7 +153,7 @@ class DataAquisition:
             'repeat':False
         }
 
-        anime = animation.FuncAnimation(**params)
+        self.anime = animation.FuncAnimation(**params)
         
         plt.show()
 

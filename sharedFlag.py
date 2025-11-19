@@ -33,9 +33,12 @@ laser_point =(0,0)
 
 def test(event, theta):
     event.clear()
-    for i in range(5):
-        print(i+theta*10)
+    """
+    for i in range(3):
+        print(f"theta:{theta}, i:{i}")
         time.sleep(1)
+    """
+    time.sleep(0.5)
     event.set()
 
 
