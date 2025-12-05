@@ -162,10 +162,10 @@ def getCameraImage(event, laser_point, timeout_ms,timelimit_s=10,isPlotMatchpoin
     fps = int(min(525, 1000/(exposuretime_ms+alpha_ms)))
     fps = int(len(image_list)/(t2-t1))
     #fps = int(fps/10)
-    print("create video")
+    print("start creating video")
     createVideo(image_list,fps,videoname)
     print("created video")
-    print("videoname is "+videoname)
+    print("videoname : "+videoname)
 
     #カメラにおける全ての処理が終了したのでカメラを閉じる
     camera.Close()
@@ -225,15 +225,15 @@ def getCameraImage_endless(startLDVFlag,cameraGrabingFinish, laser_point, timeou
             image_list.append(image)
             
             
-            
+            """
             #ラグ確認用、円起動
             global count
             X = 0.1*math.cos(count/100*math.pi)
             Y = 0.1*math.sin(count/100*math.pi)
             count +=1
-            
-            #X -= distance[0]*intervalX/10*5
-            #Y -= distance[1]*intervalY/10*5
+            """
+            X -= distance[0]*intervalX/10*5
+            Y -= distance[1]*intervalY/10*5
             
             controlMirror.changeAngle(X,Y,mre2)
 
@@ -247,8 +247,9 @@ def getCameraImage_endless(startLDVFlag,cameraGrabingFinish, laser_point, timeou
             print("camera stop grabbing")
 
     #---撮影の終了
-    print(f"cameragrab start time is {t1}")
-    print(f"cameragrab end time is {t2}")
+    #print(f"cameragrab start time is {t1}")
+    #print(f"cameragrab end time is {t2}")
+    print(f"camera grabing time: {t2-t1}[s]")
     controlMirror.changeAngle(0,0,mre2)
     alpha_ms = 0.4  #pylon Viewerから推定した読み取り時間＋その他の内部処理時間
     fps = int(min(525, 1000/(exposuretime_ms+alpha_ms)))

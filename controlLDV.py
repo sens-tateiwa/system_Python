@@ -4,6 +4,7 @@ import datetime
 import time
 import winsound
 import itertools
+import queue
 
 import matplotlib
 matplotlib.use('TkAgg')  # または 'Qt5Agg', 'QtAgg' など
@@ -70,7 +71,7 @@ def run(sample_count=2**17, new_bandwidth="1 kHz", new_range="10 mm/s"):
     return file_name
 
 class DataAquisition:
-    def __init__(self,cameraGrabingFinish,sample_count, new_bandwidth,new_range):
+    def __init__(self,cameraGrabingFinish,sample_count, new_bandwidth,new_range,lastdata_queue):
         self.ip_address = "192.168.137.1"
 
         self.cameraFinishFlag = cameraGrabingFinish
@@ -88,6 +89,8 @@ class DataAquisition:
 
         self.anime = None
         self.velocity = ""
+        self.lastdata = lastdata_queue
+        self.buffer_list=[]
 
         #winsound.Beep(400,500)#400Hzを500ms
         #time.sleep(0.5)
@@ -119,29 +122,58 @@ class DataAquisition:
     def __update(self,frame,t,line):
         #if frame == self.last_frame:
         #    return line,
+
+        #カメラ追従を終了した時、グラフの更新も停止する
         if self.cameraFinishFlag.is_set() == True:
             print("アニメーションの終了")
-            self.anime.event_source.stop()
+            try:
+                """
+                # 現在のデータを取得
+                x = line.get_xdata()
+                y = line.get_ydata()
+                """
+                send_data = np.array(self.buffer_list)
+                # 古いデータが残っていれば捨てて（念の為）、新しいデータを入れる
+                # ※ maxsize=1設定なら、putの前にget_nowaitする
+                try:
+                    while not self.lastdata.empty():
+                        self.lastdata.get_nowait()
+                except queue.Empty:
+                    pass
+                #self.lastdata.put((x,y))#Queueにデータを送信し、メインプロセスでこれを取得する
+                self.lastdata.put(send_data)
+                print("Queueにデータを送信しました")
+                time.sleep(3)
+            except Exception as e:
+                print(f"データ送信エラー：{e}")
+            self.anime.event_source.stop()#アニメーションの停止
+            plt.close(self.fig)#pltの終了、plt.closeでplt.showを終わらせる
             return line,
-        self.isnotDataAquiring.wait()#データを取得する関数の初めにisnotDataAquiring.clear()で__update()しないように待機させる、データを取得し終わるとisnotDataAquiring.set()で__update()を起動
-        self.theta = 1 + frame
-        print(f'theta = {self.theta}')
+        self.isnotDataAquiring.wait()#データを取得する関数の初めにisnotDataAquiring.clear()で__update()しないように待機させる、データを取得し終わるとisnotDataAquiring.set()で__update()を起動<-これはよくないらしい（by gemini）なので再描画しないようにする
+        #if not self.isnotDataAquiring.is_set():
+        #    return line,
+        #self.theta = 1 + frame
+        print(f'frame: {frame}')#現在のフレームを確認
+
         
         #sharedFlag.test(self.isnotDataAquiring,self.theta)#データ取得の関数のテスト
         
         #new_y_data = np.sin(t * self.theta)
-        new_y_data = self._dataAquisition()
+        new_y_data = self._dataAquisition()#LDVからデータ取得
 
-        line.set_ydata(new_y_data)
-        self.last_frame = frame
+        line.set_ydata(new_y_data)#lineに取得した変位データをset
+        self.buffer_list.append(new_y_data)#バッファに変位データを蓄積（あとでメインプロセスにn計測回分まとめて送信）
+        #self.last_frame = frame
         return line,
 
     def animate(self):
-        fig= plt.figure()
+        self.fig= plt.figure()
         plt.xlabel('time [s]')
-        plt.ylabel('Velocity [m/s]')
+        #plt.ylabel('Velocity [m/s]')
+        plt.ylabel('Displacement [m]')
         plt.xlim(0,self.N*self.dt+0.01)
-        plt.ylim(-0.003,0.003)
+        #plt.ylim(-0.003,0.003)
+        plt.ylim(-0.0007,0.0007)
         """
         plt.xlim(0,6.3)
         plt.ylim(-1.2,1.2)
@@ -157,11 +189,11 @@ class DataAquisition:
         data_time_interval = self.dt
         interval_ms = self.N * self.dt * 1000 + interval_margin_ms
         #interval_ms = 100
-        frames = itertools.count(0,0.1) #フレーム番号を無限に生成
+        frames = itertools.count(1,1) #フレーム番号を無限に生成itertools.count(start=1, step=1)
         #frames = range(5)               #5回だけ実行、テスト用
 
         params = {
-            'fig':fig,                                  #描画する下地
+            'fig':self.fig,                                  #描画する下地
             'func':self.__update,                             #グラフを更新する関数
             'fargs':(t, self.line),  #関数の引数
             'interval':interval_ms,                     #更新間隔(ミリ秒)
@@ -174,6 +206,7 @@ class DataAquisition:
         self.anime = animation.FuncAnimation(**params)
         
         plt.show()
+        print("DataAquisition process finished")
 
 
 if __name__ == "__main__":
