@@ -133,9 +133,10 @@ def fftplt_indiv(file_name, sample_count, dt):
         csv_velocity = [float(x[0]) for x in text]
     X=np.fft.fft(csv_velocity)
     """
+    
     df = np.loadtxt(file_name+'.txt')
     r_mm = 30
-    df = correct_data(file_name,df,r_mm,sample_count,dt)
+    #df = correct_data(file_name,df,r_mm,sample_count,dt)
 
     X=np.fft.fft(df)
     
