@@ -10,7 +10,104 @@ from matplotlib.animation import FuncAnimation
 import random
 import collections
 from scipy import integrate
+import scipy
 import os
+
+def gamma(freq):
+    values=[[20 , 1.30], 
+            [50 , 1.24],
+            [100, 1.10],
+            [200, 1.08],
+            [250, 1.10],
+            [300, 1.20],
+            [500, 1.11],
+            [1000,1.27]]
+    #print(f"freq = {freq}")
+    
+    match freq:
+        case freq if freq<20:
+            return 0
+        case freq if freq<50:
+            x_1 = values[0][0]
+            y_1 = values[0][1]
+            x_2 = values[1][0]
+            y_2 = values[1][1]
+        case freq if freq<100:
+            x_1 = values[1][0]
+            y_1 = values[1][1]
+            x_2 = values[2][0]
+            y_2 = values[2][1]
+        case freq if freq<200:
+            x_1 = values[2][0]
+            y_1 = values[2][1]
+            x_2 = values[3][0]
+            y_2 = values[3][1]
+        case freq if freq<250:
+            x_1 = values[3][0]
+            y_1 = values[3][1]
+            x_2 = values[4][0]
+            y_2 = values[4][1]
+        case freq if freq<300:
+            x_1 = values[4][0]
+            y_1 = values[4][1]
+            x_2 = values[5][0]
+            y_2 = values[5][1]
+        case freq if freq<500:
+            x_1 = values[5][0]
+            y_1 = values[5][1]
+            x_2 = values[6][0]
+            y_2 = values[6][1]
+        case freq if freq<1000:
+            x_1 = values[6][0]
+            y_1 = values[6][1]
+            x_2 = values[7][0]
+            y_2 = values[7][1]
+    #print(f"x_1 = {x_1}")
+    #print(f"y_1 = {y_1}")
+    #print(f"x_2 = {x_2}")
+    #print(f"y_2 = {y_2}")
+    try:
+        value = (y_1*(x_2-freq)+y_2*(freq-x_1))/(x_2-x_1)
+        #print(f"gamma value = {value}")
+    except:
+        value = 0
+        #print(f"gamma value is always 0")
+    return value
+
+def correct_data(file_name,x,r,sample_count,dt):
+    x = x*(10**6)#xはμm単位、今回はmで計測しているため変換
+    X = np.fft.fft(x)
+    X[0] = 0
+    f = np.fft.fftfreq(sample_count,dt)
+    data = [X_i*(r**gamma(freq)) for (X_i,freq) in zip(X,f)]#元信号xはμm、rはmmで計算する
+    corrected_x=np.fft.ifft(data)
+    
+
+    N = sample_count
+    plt.figure()
+    plt.xlabel('time [s]')
+    plt.ylabel('Displacement [μm]')
+    #plt.ylim(-12,12)
+    #plt.tick_params(labelsize=45)
+    #plt.subplots_adjust(0.2,0.15,0.97,0.95)
+    t = np.linspace(0,dt*N,N)
+    #plt.plot(t, csv_velocity) # 入力信号
+    plt.plot(t,x)
+    plt.savefig(file_name+'_補正前.png')
+
+    plt.figure()
+    plt.xlabel('time [s]')
+    plt.ylabel('Displacement [μm]')
+    #plt.ylim(-12,12)
+    #plt.tick_params(labelsize=45)
+    #plt.subplots_adjust(0.2,0.15,0.97,0.95)
+    t = np.linspace(0,dt*N,N)
+    #plt.plot(t, csv_velocity) # 入力信号
+    plt.plot(t,corrected_x)
+    plt.savefig(file_name+'_補正後.png')
+
+    corrected_x = corrected_x/(10**6) #xをmからμmに戻す
+    return corrected_x.real
 
 def fftplt_indiv(file_name, sample_count, dt):
     #rootdir = 'C:/Users/yuto/Documents/optotune/measuredData/'
@@ -21,6 +118,7 @@ def fftplt_indiv(file_name, sample_count, dt):
 
     
     df = []
+    """
     df = pd.read_csv(file_name)    
     text=df.to_string()
 
@@ -34,22 +132,30 @@ def fftplt_indiv(file_name, sample_count, dt):
     except:
         csv_velocity = [float(x[0]) for x in text]
     X=np.fft.fft(csv_velocity)
+    """
+    df = np.loadtxt(file_name+'.txt')
+    r_mm = 30
+    df = correct_data(file_name,df,r_mm,sample_count,dt)
+
+    X=np.fft.fft(df)
+    
 
     #print(f"X[0] = {X[0]}")
     X[0] = 0
             
     f = np.fft.fftfreq(N,dt)
-                    
+    
     #plt.rcParams["font.size"]=60
     plt.figure()
     plt.xlabel('time [s]')
-    plt.ylabel('Velocity [m/s]')
+    plt.ylabel('Displacement m')
     plt.ylim(-0.012,0.012)
     #plt.tick_params(labelsize=45)
     plt.subplots_adjust(0.2,0.15,0.97,0.95)
     t = np.linspace(0,dt*N,N)
-    plt.plot(t, csv_velocity) # 入力信号
-    plt.savefig(file_name+'_velocity.png')
+    #plt.plot(t, csv_velocity) # 入力信号
+    plt.plot(t,df)
+    plt.savefig(file_name+'_Displacement_元データ.png')
     
     #plt.rcParams["font.size"]=60
     plt.figure()
@@ -69,7 +175,7 @@ def fftplt_indiv(file_name, sample_count, dt):
     plt.xlim(f[0],600)
     #plt.xlim(f[1],50)
     plt.ylabel('Amplitude')
-    plt.ylim(0,0.3)
+    #plt.ylim(0,0.3)
     #plt.tick_params(labelsize=45)
     plt.subplots_adjust(0.2,0.15,0.97,0.95)
     #plt.plot(f[1:int(N/2)],np.abs((X)/(N/2))[1:int(N/2)])
@@ -78,14 +184,47 @@ def fftplt_indiv(file_name, sample_count, dt):
 
     #plt.show()
 
+def butter_highpass_fillter(x, N, Wn, btype, analog, output,fs):
+    #N = フィルタ次数
+    #Wn = カットオフ周波数
+    #btype = フィルタのタイプ（highpass, lowpass, bandpass, bandstop）
+    #analog = False, True
+    #output = 出力のタイプ(ba, sos, zpk)
+    #fs = デジタルフィルタの場合、サンプリング周波数
+    sos = scipy.signal.butter(N, Wn, btype, analog, output, fs)
+
+    #sos = butterの戻り値
+    #x = 対象の波形
+    #axis = どの軸に沿ってフィルタをかけるか
+    #padtype = パディングのタイプ？
+    #padlen = パディングの長さ？
+    x = scipy.signal.sosfiltfilt(sos, x, axis=-1, padtype='odd', padlen=None)
+    return x
+    
+
+
 def STFT(sample_count, dt,file_name, Lf, noverlap=None):
+    #Lf = 切り出す窓の長さ
     N = sample_count
     fs = 1/dt
-    df = pd.read_csv(file_name)    
-    text=df.to_string()
+    #df = pd.read_csv(file_name)
 
-    text = text.split('\n')
+    s = np.loadtxt(file_name+'.txt')
+    velocity_list = s
+    Wn = 50#カットオフ周波数
+    order = 4#次数
+    filtered_data = butter_highpass_fillter(velocity_list, order, Wn, 'highpass', False, 'sos',fs)
+    r_mm = 30
+    #corrected_data = correct_data(file_name,filtered_data,r_mm,sample_count,dt)
     
+    
+    #text=df.to_string()
+
+    #print(text)
+    #text = text.split('\n')
+
+
+    """
     for j in range(0,N,1):
         text[j] = text[j].split(";")
     text = text[0:N]
@@ -103,16 +242,13 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     for j in range(1,sample_count,1):
         displacement += (velocity_list[j-1] + velocity_list[j])*dt/2
         displacement_list.append(displacement)
-    """
-    displacement = 0
-    displacement_list = []
-    for j in range(0,sample_count,1):
-        x = np.linspace(0,dt,dt*(j))
     
-    """
     s = displacement_list
     #---速度を変位に変換
+    """
+    #s = [float(x) for x in text]  
 
+    #s=corrected_data
     periodograms = []
     
     if noverlap==None:
@@ -120,7 +256,7 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     l = sample_count
     win = np.hanning(Lf)
     Mf = Lf//2 + 1
-    print(f"ナイキスト周波数：{Mf}")
+    print(f"周波数データの点数：{Mf}")
     Nf = int(np.ceil((l-noverlap)/(Lf-noverlap)))-1
     print(f"窓数：{Nf}")
     S = np.empty([Mf, Nf], dtype=np.complex128)
@@ -157,7 +293,7 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     plt.tight_layout()
     plt.savefig(file_name+'_spectrogram.png')
     """
-    velocity_list = s
+    
     S = S + 1e-18
     #P = 20 * np.log10(np.abs(S))      #振幅スペクトル
     P = 10 * np.log10((np.abs(S))**2) #パワースペクトル
@@ -166,7 +302,7 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     sp_abs = P
     
     freq_sp = np.fft.rfftfreq(Lf, dt)
-    freq_bottum = 1
+    freq_bottum = 50
     freq_upper = 600
     tm = np.linspace(0,dt*N,N)
     frame_start_indices = np.arange(Nf) * (Lf - noverlap)
@@ -175,8 +311,9 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
 
     vmin=(sp_abs[(freq_bottum <freq_sp) & (freq_sp < freq_upper), :]).min()
     vmax=(sp_abs[(freq_bottum <freq_sp) & (freq_sp < freq_upper), :]).max()
-    vmin = -100
-    vmax = 5
+    #vmin = -100
+    #vmax = 5
+
     #print((sp).shape)
     #print(type(sp_abs[1,1]))
     #print(f"min: {np.min(sp_abs)}")
@@ -230,12 +367,21 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     ax1.tick_params(labelbottom=True)
     plt.tick_params(labelsize=20)
     ax1.set_ylabel('Displacement [m]')
-    ax1.set_ylim(-0.0005,0.0005)
+    ax1.set_ylim(-0.00001,0.00001)#10μm、bensmaiaに合わせた
     #ax1.set_ylim(-0.075,0.01)
+    nyquist = fs / 2
+    cutoff = 100  # あなたが設定したいカットオフ周波数
 
+    print(f"サンプリング周波数 fs: {fs} Hz")
+    print(f"ナイキスト周波数 nyq: {nyquist} Hz")
+    print(f"指定カットオフ cutoff: {cutoff} Hz")
+    print(f"正規化周波数 Wn: {cutoff / nyquist}") # これが 1.0 を超えていませんか？
     #ax1.plot(tm, velocity_list, c='black')
-    #filtered_data = butter_lowpass_filter(velocity_list,100,1/dt,order=4) #フィルタをかける場合
-    filtered_data = velocity_list#フィルタをかけない場合
+    filtered_data = velocity_list#フィルタをかけない場合、これの下がハイパスをかける場合
+    Wn = 50#カットオフ周波数
+    order = 4#次数
+    filtered_data = butter_highpass_fillter(velocity_list, order, Wn, 'highpass', False, 'sos',fs)
+
     ax1.plot(tm, filtered_data, c='black')
 
     # スペクトログラムのプロット
@@ -246,9 +392,6 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     ax_sp1.set_ylim(freq_bottum, freq_upper)
     ax_sp1.set_ylabel('Frequency\n[Hz]')
     
-
-    #norm = mpl.colors.Normalize(vmin=np.log10(np.abs(sp[freq_sp < freq_upper, :])**2).min(), 
-     #                           vmax=np.log10(np.abs(sp[freq_sp < freq_upper, :])**2).max())
     norm = mpl.colors.Normalize(vmin, vmax)
     print("min = "+ str(vmin))
     print("max = "+ str(vmax))
@@ -277,13 +420,19 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     #ax_sp1.plot(freq_sp, P_welch_db, c='blue') # PSDを線グラフでプロット
 
     #plt.gray
-    #plt.show()
+    
 
     plt.savefig(file_name+f'_displacement_spectrogram_{freq_bottum}-{freq_upper}.png')
+    #plt.show()
     #plt.savefig(file_name+f'_displacement_periodogram_{freq_bottum}-{freq_upper}.png')
 
 
-def compute_welch_psd_and_plot(signal_data_np, sampling_rate, window_length, overlap_samples=None, output_dir='.', base_filename='welch_psd'):
+def compute_welch_psd_and_plot(file_name, sampling_rate, window_length, overlap_samples=None):
+    
+    signal_data_np = np.loadtxt(file_name+'.txt')
+    Wn = 50#カットオフ周波数
+    order = 4#次数
+    signal_data_np = butter_highpass_fillter(signal_data_np, order, Wn, 'highpass', False, 'sos',sampling_rate)
     # 引数の型チェックとデフォルト値の設定
     if not isinstance(signal_data_np, np.ndarray):
         raise TypeError("Input signal_data_np must be a NumPy array.")
@@ -352,7 +501,7 @@ def compute_welch_psd_and_plot(signal_data_np, sampling_rate, window_length, ove
 
     # スペクトル平均化 (Welch法の中核)
     # 収集した全てのピリオドグラムを周波数ビンごとに平均化する
-    averaged_psd = np.mean(periodograms, axis=0) 
+    averaged_psd = np.mean(periodograms, axis=0)
     
     # パワースペクトルをdBスケールに変換 (0の対数を避けるため微小値1e-18を加算)
     P_welch_db = 10 * np.log10(averaged_psd + 1e-18) 
@@ -399,8 +548,8 @@ def compute_welch_psd_and_plot(signal_data_np, sampling_rate, window_length, ove
     
     # 周波数軸の表示範囲設定
     # 論文の記述「frequency components below 50 Hz are ignored」に合わせて、プロット開始点を50Hzに設定
-    freq_min_plot = 0 # 表示開始周波数 (Hz)
-    freq_max_plot = 600 # ナイキスト周波数まで表示 (Hz)
+    freq_min_plot = Wn # 表示開始周波数 (Hz)
+    freq_max_plot = 600 # ナイキスト周波数まで表示 (Hz)はしてない
     
     ax_psd.set_xlim(freq_min_plot, freq_max_plot)
     ax_psd.set_xlabel('Frequency [Hz]')
@@ -416,9 +565,10 @@ def compute_welch_psd_and_plot(signal_data_np, sampling_rate, window_length, ove
     # 出力ディレクトリが存在しない場合は作成
     #os.makedirs(output_dir, exist_ok=True)
     #output_full_path = os.path.join(output_dir, f"{base_filename}.png")
-    output_full_path = output_dir+base_filename+'.png'
+    
+    output_full_path = file_name+'_welch_psd.png'
     plt.savefig(output_full_path)
-    plt.show()
+    #plt.show()
 
 
 
@@ -496,7 +646,7 @@ def fftplt_indiv_endless(data, sample_count, dt):
     plt.plot(f[0:int(N/2)],np.abs((X)/np.sqrt(N))[0:int(N/2)])
 
 
-
+"""
 if __name__ == "__main__":
     sample_count = 2**18
     dt = 1/218750
@@ -542,6 +692,17 @@ if __name__ == "__main__":
     compute_welch_psd_and_plot(velocity_data_np, 1/dt,window_length, overlap_samples, rootDir+file_name, '_welch_psd_vel')
     #convertVelocity2Displacement(rootDir+file_name, sample_count, dt)
     #convertVelocity2Displacement(rootDir+file_name1, sample_count, dt)
-
+"""
 
 #周波数空間ではなく、速度-時間データを機械学習で接触判定、分類もあり
+
+
+if __name__ == "__main__":
+    sample_count = 2**17
+    dt = 1/218750
+    window_length = 2**14
+    rootDir = 'C:/Users/yuto/Documents/system_python/data/LDVdata/'
+    file_name = "20251208_1804_3"
+    STFT(sample_count, dt, rootDir+file_name, 2**14)
+    fftplt_indiv(rootDir+file_name, sample_count, dt)
+    compute_welch_psd_and_plot(rootDir+file_name, 1/dt, window_length, overlap_samples=None)

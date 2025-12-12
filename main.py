@@ -5,6 +5,7 @@ import controlCamera
 import controlLDV
 import sharedFlag
 import controlGUI
+import signalProcessing
 import sys
 import datetime
 import numpy as np
@@ -70,7 +71,7 @@ def event_controlLDV_endless(event, sample_count, new_bandwidth, new_range):
 def run_endless():
     timeout_ms = 5
     timelimit_s = 30
-    sample_count=2**15 #2^17 = 131,072
+    sample_count=2**17 #2^17 = 131,072
     dt = 1/218750
     new_bandwidth="1 kHz"
     new_range="10 mm/s"
@@ -92,12 +93,15 @@ def run_endless():
         button_process = multiprocessing.Process(target=buttonWindow.run,args=())
         
         controlCamera_process = multiprocessing.Process(target=controlCamera.getCameraImage_endless, args=(startLDV, cameraGrabingFinish, laser_point,timeout_ms,timelimit_s,isPlotMatchpoint))
+        
+        button_process.start()
+
         controlCamera_process.start()
 
         startLDV.wait()#カメラが起動するまで待機
         
         dataAquisition_process.start()
-        button_process.start()
+        
         #子プロセスの起動
         #process_queue = multiprocessing.Queue()#共有のQueueを作成
         #process = multiprocessing.Process(target=hoge,args=(ho,ge,process_queue))#プロセスの引数に共有のQueueを渡す
@@ -129,16 +133,26 @@ def run_endless():
         dataAquisition_process.join()#メインプロセスに終わったことを通知する（メインプロセスに合流する）
 
         rootDir = 'C:/Users/yuto/Documents/system_python/data/LDVdata'
+        now = datetime.datetime.now()
+        name = now.strftime("%Y%m%d_%H%M")
         x = np.linspace(0,dt*sample_count,sample_count)
         chunk=1
         for chunk_data in acquired_data:
-            now = datetime.datetime.now()
-            name = now.strftime(f"%Y%m%d_%H%M%S_{chunk}")
-            file_name = rootDir + '/' + name + '.txt'
+            file_name = rootDir + '/' + name + f'_{chunk}'
             y = chunk_data
-            np.savetxt(file_name, y,fmt='%s')
+            np.savetxt(file_name+'.txt', y,fmt='%s')
+            fig= plt.figure()
+            plt.xlabel('time [s]')
+            plt.ylabel('Displacement [m]')
+            plt.xlim(0,sample_count*dt+0.01)
+            plt.ylim(-0.0007,0.0007)
+            plt.plot(x,y)
+            plt.savefig(file_name+'.png')
+            signalProcessing.STFT(sample_count, dt, file_name, 2**15)
+            signalProcessing.fftplt_indiv(file_name, sample_count, dt)
             chunk += 1
         
+        """
         fig= plt.figure()
         plt.xlabel('time [s]')
         plt.ylabel('Displacement [m]')
@@ -146,7 +160,7 @@ def run_endless():
         plt.ylim(-0.0007,0.0007)
         plt.plot(x,y)
         plt.show()
-
+        """
         sys.exit(0)
         
     except KeyboardInterrupt:

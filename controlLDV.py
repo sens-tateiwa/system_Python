@@ -159,7 +159,10 @@ class DataAquisition:
         #sharedFlag.test(self.isnotDataAquiring,self.theta)#データ取得の関数のテスト
         
         #new_y_data = np.sin(t * self.theta)
+
+        winsound.Beep(400,300)#400Hzを300ms
         new_y_data = self._dataAquisition()#LDVからデータ取得
+        winsound.Beep(400,300)
 
         line.set_ydata(new_y_data)#lineに取得した変位データをset
         self.buffer_list.append(new_y_data)#バッファに変位データを蓄積（あとでメインプロセスにn計測回分まとめて送信）

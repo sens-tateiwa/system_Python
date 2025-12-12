@@ -154,7 +154,7 @@ def TemplateMatching(image, image_template, isPlotMatchpoint=False):
     """
 
     margin_rate = 0.12#注目領域を制限する、0で制限なし、全体のmargin_rateの割合分の上下左右領域を無視してマッチングする
-    margin_rate = 0
+    #margin_rate = 0
 
     ROI_x_start = int(width*margin_rate)
     ROI_x_end = int(width*(1-margin_rate))

@@ -271,7 +271,7 @@ if __name__ == "__main__":
     timeout_ms = 5
     timelimit_s = 10
     #getCameraImage(timelimit_s,timeout_ms)
-    videoname = "20251113_163256"
+    videoname = "20251208_180346"
     videoDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'.mp4'
     rootDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'_list'
     try:
