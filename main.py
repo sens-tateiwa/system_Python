@@ -6,6 +6,7 @@ import controlLDV
 import sharedFlag
 import controlGUI
 import signalProcessing
+import controlMirror
 import sys
 import datetime
 import numpy as np
@@ -77,40 +78,55 @@ def run_endless():
     new_range="10 mm/s"
     isPlotMatchpoint=False
     rootDir = 'C:/Users/yuto/Documents/system_python'
-    laserImage = 'Image__2025-11-13__16-05-34.png'
+    laserImage = 'Image__2025-12-13__16-23-45.png'
     laser_point = imageProcessing.calculateLaserPoint(rootDir+'/'+laserImage)
+
 
     startLDV = multiprocessing.Event()           #LDVの計測を開始させるフラグ、カメラ追従が起動したらsetする
     cameraGrabingFinish = multiprocessing.Event()#カメラの連続撮影が終了したかどうかのフラグ
+    prepareMirror = multiprocessing.Event()      #ミラーが追従開始位置にセットされたかどうかのフラグ
 
+    prepareLaserPosition = multiprocessing.Queue(maxsize=1)#開始前にGUIで設定したミラーの角度（レーザの位置）を共有するためのqueue
+
+    MirrorAngle_queue = multiprocessing.Queue(maxsize=1)
     lastdata_queue = multiprocessing.Queue(maxsize=1)#共有のQueueを作成、できるならshared_memoryの方がよい
 
     try:
         dataAquisition = controlLDV.DataAquisition(cameraGrabingFinish,sample_count,new_bandwidth,new_range,lastdata_queue)
         dataAquisition_process=multiprocessing.Process(target=dataAquisition.animate, args=())
 
-        buttonWindow = controlGUI.ButtonWindow(cameraGrabingFinish)
+        
+        buttonWindow = controlGUI.ButtonWindow(MirrorAngle_queue,prepareLaserPosition,cameraGrabingFinish)
         button_process = multiprocessing.Process(target=buttonWindow.run,args=())
         
-        controlCamera_process = multiprocessing.Process(target=controlCamera.getCameraImage_endless, args=(startLDV, cameraGrabingFinish, laser_point,timeout_ms,timelimit_s,isPlotMatchpoint))
-        
-        button_process.start()
+        controlMirror_process = multiprocessing.Process(target=controlMirror.mirror_server,args=(MirrorAngle_queue, prepareMirror))
 
+        controlCamera_process = multiprocessing.Process(target=controlCamera.getCameraImage_endless, args=(MirrorAngle_queue,prepareLaserPosition,startLDV, cameraGrabingFinish, laser_point,timeout_ms,timelimit_s,isPlotMatchpoint))
+        
+        #buttonの子プロセスでミラーの初期位置を設定しようとしていたが、
+        # 2つの子プロセスで同時にミラー（ハードウェア）に接続しようとするとエラーが発生し、片方を初期設定後に切断できなかったため、
+        # メインプロセスから2つのプロセス（カメラとGUI）を実行するのではなく、GUIを子プロセスではなく、カメラプロセス内でimportして
+        # カメラプロセス（頻繁に高速でミラー制御を行う方のプロセス）内でGUI（ボタン）を表示するclassを実行するように変更した
+        controlMirror_process.start()
+        prepareMirror.wait()#ミラーの接続が確立されるまで待機
+
+        button_process.start()
+        
         controlCamera_process.start()
+
+        #現状：計測を開始する合図はカメラが起動する直前である。カメラ起動前にGUIが表示される
+        #GUIによってカメラ起動（計測開始:startLDV.set()）する前に「終了」すると、
+        # この下の「startLDV.wait()」は永遠にset()されないEventを待機し続けるため、終了操作を行えない
 
         startLDV.wait()#カメラが起動するまで待機
         
         dataAquisition_process.start()
         
-        #子プロセスの起動
-        #process_queue = multiprocessing.Queue()#共有のQueueを作成
-        #process = multiprocessing.Process(target=hoge,args=(ho,ge,process_queue))#プロセスの引数に共有のQueueを渡す
-        #process.start()
-        
         cameraGrabingFinish.wait()
         print("cameraGrabingFinishFlag is set")
 
-        
+        #下のQueueを受け取る部分もデータがあること前提であるため、
+        # 計測開始前に終了するなどのデータがないことを想定した動作が必要
         acquired_data = lastdata_queue.get()
         num_data_chunk = acquired_data.shape[0]
         num_one_data = acquired_data.shape[1]
@@ -122,6 +138,8 @@ def run_endless():
 
         button_process.terminate()
         button_process.join()
+        controlMirror_process.terminate()
+        controlMirror_process.join()
         while controlCamera_process.is_alive():
             print("creating video")
             time.sleep(0.5)
@@ -169,8 +187,8 @@ def run_endless():
 
         dataAquisition_process.terminate()
         dataAquisition_process.join()
-        button_process.terminate()
-        button_process.join()
+        #button_process.terminate()
+        #button_process.join()
         sys.exit(0)
 
         #process_queueから最新のデータを取り出す処理（またはいくつかのデータを順に取り出してappendでlistにまとめる処理）をここにかく

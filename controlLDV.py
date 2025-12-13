@@ -75,8 +75,10 @@ class DataAquisition:
         self.ip_address = "192.168.137.1"
 
         self.cameraFinishFlag = cameraGrabingFinish
-    
-        changeBandwidthandRange.run(self.ip_address, new_bandwidth,new_range)
+
+        self.new_bandwidth = new_bandwidth
+        self.new_range = new_range
+        #changeBandwidthandRange.run(self.ip_address, new_bandwidth,new_range)
 
         self.dt = 1/218750
         self.N=sample_count
@@ -160,9 +162,9 @@ class DataAquisition:
         
         #new_y_data = np.sin(t * self.theta)
 
-        winsound.Beep(400,300)#400Hzを300ms
+        winsound.Beep(400,500)#400Hzを500ms鳴らす
         new_y_data = self._dataAquisition()#LDVからデータ取得
-        winsound.Beep(400,300)
+        winsound.Beep(400,500)
 
         line.set_ydata(new_y_data)#lineに取得した変位データをset
         self.buffer_list.append(new_y_data)#バッファに変位データを蓄積（あとでメインプロセスにn計測回分まとめて送信）
@@ -170,6 +172,12 @@ class DataAquisition:
         return line,
 
     def animate(self):
+        try:
+            changeBandwidthandRange.run(self.ip_address, self.new_bandwidth,self.new_range)
+        except:
+            print("change bandwidth and range error")
+            return
+        
         self.fig= plt.figure()
         plt.xlabel('time [s]')
         #plt.ylabel('Velocity [m/s]')

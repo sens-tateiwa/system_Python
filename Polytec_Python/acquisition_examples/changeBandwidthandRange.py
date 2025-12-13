@@ -38,6 +38,8 @@ def changeRange(device_communication, new_range):
 def run(address, new_bandwidth="1 kHz", new_range="2 m/s"):
     try:
         device_communication = DeviceCommunication(address)
+        print(f"new_bandwidth = {new_bandwidth}")
+        print(f"new_range = {new_range}")
         changeBandwidth(device_communication, new_bandwidth)
         changeRange(device_communication, new_range)
     except Exception as e:

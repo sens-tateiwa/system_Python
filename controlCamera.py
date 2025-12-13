@@ -15,6 +15,7 @@ import cv2
 
 import imageProcessing
 import controlMirror
+import controlGUI
 import sharedFlag
 
 #videoDirで指定した動画を分割しrootDirに複数枚の画像として保存する
@@ -172,8 +173,10 @@ def getCameraImage(event, laser_point, timeout_ms,timelimit_s=10,isPlotMatchpoin
     cv2.destroyAllWindows()
     return
 
-
-def getCameraImage_endless(startLDVFlag,cameraGrabingFinish, laser_point, timeout_ms,timelimit_s=30,isPlotMatchpoint=False):
+#現状：ボタンのclassでmain.loop()によって処理がストップするため、次に進まない
+# よってthreadでカメラとGUIを分離して処理する、gemini曰くGUIをメインスレッド、カメラをサブスレッドにするのがおすすめ
+# もっとおすすめはミラー専用のプロセスでミラー制御をそのプロセスへのデータ送信の形で実装する
+def getCameraImage_endless(MirrorAngle_queue,prepareLaserPosition,startLDVFlag,cameraGrabingFinish, laser_point, timeout_ms,timelimit_s=30,isPlotMatchpoint=False):
     # トランスポートレイヤーインスタンスを取得
     tl_factory = pylon.TlFactory.GetInstance()
 
@@ -194,17 +197,22 @@ def getCameraImage_endless(startLDVFlag,cameraGrabingFinish, laser_point, timeou
 
     image_list = []
 
-    X=0
-    Y=0
+    
     intervalX = 0.01/126
     intervalY = 0.01/126
-    mre2 = controlMirror.setMirror()
-    controlMirror.changeAngle(X,Y,mre2)
+
+
+    #mre2 = controlMirror.setMirror()
+    X, Y = prepareLaserPosition.get()#GUIで設定したミラーの初期角度を受信するまで待機
+    MirrorAngle_queue.put((X,Y))
+    
+    #print(f"prepareMirror is set")
+    #controlMirror.changeAngle(X,Y,mre2)
 
     now = datetime.datetime.now()
     videoname = now.strftime("%Y%m%d_%H%M%S")
 
-    radius = 120    
+    radius = 100    
     image_template = imageProcessing.createTemplateCircleImage(radius)
 
 
@@ -235,7 +243,9 @@ def getCameraImage_endless(startLDVFlag,cameraGrabingFinish, laser_point, timeou
             X -= distance[0]*intervalX/10*5
             Y -= distance[1]*intervalY/10*5
             
-            controlMirror.changeAngle(X,Y,mre2)
+            #controlMirror.changeAngle(X,Y,mre2)
+            MirrorAngle_queue.put((X,Y))
+
 
             grab.Release()
         t2 = time.time()
@@ -250,7 +260,8 @@ def getCameraImage_endless(startLDVFlag,cameraGrabingFinish, laser_point, timeou
     #print(f"cameragrab start time is {t1}")
     #print(f"cameragrab end time is {t2}")
     print(f"camera grabing time: {t2-t1}[s]")
-    controlMirror.changeAngle(0,0,mre2)
+    #controlMirror.changeAngle(0,0,mre2)
+    MirrorAngle_queue.put((0,0))
     alpha_ms = 0.4  #pylon Viewerから推定した読み取り時間＋その他の内部処理時間
     fps = int(min(525, 1000/(exposuretime_ms+alpha_ms)))
     fps = int(len(image_list)/(t2-t1))
@@ -271,7 +282,7 @@ if __name__ == "__main__":
     timeout_ms = 5
     timelimit_s = 10
     #getCameraImage(timelimit_s,timeout_ms)
-    videoname = "20251208_180346"
+    videoname = "20251213_165218"
     videoDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'.mp4'
     rootDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'_list'
     try:
@@ -280,7 +291,7 @@ if __name__ == "__main__":
         pass
 
     
-    laserImage = 'Image__2025-11-13__16-05-34.png'
+    laserImage = 'Image__2025-12-13__16-23-45.png'
 
     laser_point = imageProcessing.calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
 
