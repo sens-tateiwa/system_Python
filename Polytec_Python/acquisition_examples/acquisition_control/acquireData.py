@@ -135,7 +135,8 @@ def __write_chunk_data(active_channels, base_sample_count, frequency_factor, chu
     """
     
     #print("__write_chunk_data is doing")
-    data=""
+    #data=""
+    data = []
     for base_id in range(base_sample_count):
         for sample_id in range(frequency_factor):
             #data+= (f"{chunk_timestamp + (base_id * frequency_factor + sample_id) * sample_interval:.8e}")
@@ -148,10 +149,11 @@ def __write_chunk_data(active_channels, base_sample_count, frequency_factor, chu
                         raise RuntimeError("Data packet lost")
                 elif channel["Type"] == ChannelType.Velocity:
                     #data += f";{channel['ScaleFactor'] * channel['Samples'][index]:.8e}"#以前はこれ「;」が無駄に挿入されている
-                    data += f"{channel['ScaleFactor'] * channel['Samples'][index]:.8e}"
+                    #data += f"{channel['ScaleFactor'] * channel['Samples'][index]:.8e}"
+                    data.append(channel['ScaleFactor'] * channel['Samples'][index])#文字列で保存し、渡す。その後文字列を数値にするという処理を最初から数値にしておくように変更した
 
 
-            data += '\n'
+            #data += '\n'
     #print("__write_chunk_data was done")
     return data
 
@@ -239,7 +241,8 @@ def __acquire_data_ver2(communication, data_acquisition, daq_config, sample_coun
         base_file_name:             The base file name format string used for all CSV files created
     """
     #print("__acquire_data is doing")
-    data = ""
+    #data = ""
+    data = []
     # Gather DAQ configuration and other necessary information
     is_block_mode = daq_config.daq_mode == "Block"
     block_count = daq_config.block_count if is_block_mode else 1
@@ -269,9 +272,9 @@ def __acquire_data_ver2(communication, data_acquisition, daq_config, sample_coun
             channel["Samples"] = data_acquisition.get_int32_data(channel["Type"], channel["ID"], sample_count)
             #print(f"channel is {channel}\n")
 
-        # Write the acquired data to the CSV file
+        # Write the acquired data to the CSV file csvファイルではなく、直接データの受け渡しに変更
         chunk_timestamp = ((base_samples_written * frequency_factor) - pre_post_trigger) * sample_interval
-        data += str(__write_chunk_data(limited_active_channels, base_sample_count, frequency_factor,
+        data.append(__write_chunk_data(limited_active_channels, base_sample_count, frequency_factor,
                                           chunk_timestamp, sample_interval))
             
         base_samples_written += base_sample_count

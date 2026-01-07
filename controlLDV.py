@@ -5,6 +5,7 @@ import time
 import winsound
 import itertools
 import queue
+from scipy import integrate
 
 import matplotlib
 matplotlib.use('TkAgg')  # または 'Qt5Agg', 'QtAgg' など
@@ -102,24 +103,23 @@ class DataAquisition:
 
     def _dataAquisition(self):
         self.isnotDataAquiring.clear()#いらないかも
-        velocity = acquire_streaming.run(self.ip_address,self.N)
-        text = velocity.split('\n')
-        text = text[0:self.N]
-        #print(text)
         
-        velocity_list = [float(x) for x in text]
-        displacement = 0
-        displacement_list = []
+        #velocity_str = acquire_streaming.run(self.ip_address,self.N)
+        #velocity_list = np.fromstring(velocity_str, sep='\n')
+        """
+        text = velocity_str.split('\n')
+        text = text[0:self.N]
+        velocity_list = np.array([float(x) for x in text])
+        """
 
-        displacement += (0 + velocity_list[0])*self.dt/2
-        displacement_list.append(displacement)
-        for j in range(1,self.N,1):
-            displacement += (velocity_list[j-1] + velocity_list[j])*self.dt/2
-            displacement_list.append(displacement)
-        #print(displacement_list)
+        velocity_list = acquire_streaming.run(self.ip_address,self.N)
+
+        #ライブラリで台形近似
+        #displacement_list = integrate.cumulative_trapezoid(velocity_list, dx=self.dt,initial=0 )
+
         self.isnotDataAquiring.set()#いらないかも
-        return displacement_list
-        #return velocity_list
+        #return displacement_list
+        return velocity_list
 
     def __update(self,frame,t,line):
         #if frame == self.last_frame:
@@ -162,9 +162,10 @@ class DataAquisition:
         
         #new_y_data = np.sin(t * self.theta)
 
-        winsound.Beep(400,500)#400Hzを500ms鳴らす
+        winsound.Beep(440,250)#400Hzを500ms鳴らす
+        winsound.Beep(493,250)
         new_y_data = self._dataAquisition()#LDVからデータ取得
-        winsound.Beep(400,500)
+        winsound.Beep(523,250)
 
         line.set_ydata(new_y_data)#lineに取得した変位データをset
         self.buffer_list.append(new_y_data)#バッファに変位データを蓄積（あとでメインプロセスにn計測回分まとめて送信）
@@ -180,11 +181,11 @@ class DataAquisition:
         
         self.fig= plt.figure()
         plt.xlabel('time [s]')
-        #plt.ylabel('Velocity [m/s]')
-        plt.ylabel('Displacement [m]')
+        plt.ylabel('Velocity [m/s]')
+        #plt.ylabel('Displacement [m]')
         plt.xlim(0,self.N*self.dt+0.01)
         #plt.ylim(-0.003,0.003)
-        plt.ylim(-0.0007,0.0007)
+        #plt.ylim(-0.0007,0.0007)
         """
         plt.xlim(0,6.3)
         plt.ylim(-1.2,1.2)
@@ -254,4 +255,3 @@ if __name__ == "__main__":
     print("savetxt was Done\n")
     
     signalProcessing.fftplt_indiv(rootDir+"/"+name + ".txt", sample_count,data_time_interval)
-

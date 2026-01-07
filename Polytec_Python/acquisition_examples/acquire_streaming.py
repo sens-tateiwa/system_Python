@@ -43,11 +43,12 @@ def run(address, sample_count=10000):
         data = acquireData.acquire_data(device_communication, sample_count)
     except Exception as e:
         logging.error(e)
-        data = "something wrong in acquire_streaming.run"
+        #data = "something wrong in acquire_streaming.run"
+        data = 0
         #sys.exit(1)
     #print("acquire_streaming.run was done")
     return data
-    # [run]
+# [run]
 
 
 if __name__ == "__main__":

@@ -10,9 +10,9 @@ import controlMirror
 import sys
 import datetime
 import numpy as np
+from scipy import integrate
 
 import matplotlib.pyplot as plt
-
 
 import time
 
@@ -71,14 +71,14 @@ def event_controlLDV_endless(event, sample_count, new_bandwidth, new_range):
 #動作未確認
 def run_endless():
     timeout_ms = 5
-    timelimit_s = 30
+    timelimit_s = 50
     sample_count=2**17 #2^17 = 131,072
     dt = 1/218750
-    new_bandwidth="1 kHz"
-    new_range="10 mm/s"
+    new_bandwidth="100 kHz" #[bandwidth_selection] Available items: 100 kHz, 50 kHz, 25 kHz, 10 kHz, 5 kHz, 1 kHz
+    new_range="200 mm/s"    #[range_selection]     Available items: 2 m/s, 1 m/s, 500mm/s, 200 mm/s, 100 mm/s, 50 mm/s, 20 mm/s, 10 mm/s
     isPlotMatchpoint=False
     rootDir = 'C:/Users/yuto/Documents/system_python'
-    laserImage = 'Image__2025-12-13__16-23-45.png'
+    laserImage = 'Image__2025-12-23__18-40-48.png'
     laser_point = imageProcessing.calculateLaserPoint(rootDir+'/'+laserImage)
 
 
@@ -142,12 +142,12 @@ def run_endless():
         controlMirror_process.join()
         while controlCamera_process.is_alive():
             print("creating video")
-            time.sleep(0.5)
+            time.sleep(1)
         controlCamera_process.join()
 
         while dataAquisition_process.is_alive():
             print("creating queue")
-            time.sleep(0.5)
+            time.sleep(1)
         dataAquisition_process.join()#メインプロセスに終わったことを通知する（メインプロセスに合流する）
 
         rootDir = 'C:/Users/yuto/Documents/system_python/data/LDVdata'
@@ -157,17 +157,24 @@ def run_endless():
         chunk=1
         for chunk_data in acquired_data:
             file_name = rootDir + '/' + name + f'_{chunk}'
+            file_name_velocity = rootDir + '/' + name + '_velocity' +f'_{chunk}'
             y = chunk_data
-            np.savetxt(file_name+'.txt', y,fmt='%s')
+            displacement_list = integrate.cumulative_trapezoid(y, dx=dt,initial=0 )
+            np.savetxt(file_name+'.txt', displacement_list,fmt='%s')
+            np.savetxt(file_name_velocity+'.txt',y,fmt='%s')
             fig= plt.figure()
             plt.xlabel('time [s]')
             plt.ylabel('Displacement [m]')
             plt.xlim(0,sample_count*dt+0.01)
-            plt.ylim(-0.0007,0.0007)
+            #plt.ylim(-0.0007,0.0007)
+            #plt.tight_layout()
             plt.plot(x,y)
             plt.savefig(file_name+'.png')
-            signalProcessing.STFT(sample_count, dt, file_name, 2**15)
+            window_length = 2**15
+            signalProcessing.STFT(sample_count, dt, file_name, 2**14)
             signalProcessing.fftplt_indiv(file_name, sample_count, dt)
+            signalProcessing.compute_welch_psd_and_plot(file_name, 1/dt, window_length, overlap_samples=None)
+            #signalProcessing.velocity_average(file_name_velocity, sample_count, dt)
             chunk += 1
         
         """

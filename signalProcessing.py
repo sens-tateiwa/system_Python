@@ -135,10 +135,17 @@ def fftplt_indiv(file_name, sample_count, dt):
     """
     
     df = np.loadtxt(file_name+'.txt')
+    df = df * (10**6)#mからμmに単位変換
+    Wn = 50#カットオフ周波数
+    order = 4#次数
+    filtered_data = butter_highpass_fillter(df, order, Wn,f_s)
+    
     r_mm = 30
     #df = correct_data(file_name,df,r_mm,sample_count,dt)
 
-    X=np.fft.fft(df)
+    X=np.fft.fft(filtered_data)
+    X = np.abs(X)#振幅スペクトル,単位は[m]
+    X = X**2     #パワースペクトル
     
 
     #print(f"X[0] = {X[0]}")
@@ -149,15 +156,16 @@ def fftplt_indiv(file_name, sample_count, dt):
     #plt.rcParams["font.size"]=60
     plt.figure()
     plt.xlabel('time [s]')
-    plt.ylabel('Displacement m')
-    plt.ylim(-0.012,0.012)
+    plt.ylabel('Pos [μm]')
+    #plt.ylim(-0.012,0.012)
     #plt.tick_params(labelsize=45)
-    plt.subplots_adjust(0.2,0.15,0.97,0.95)
+    #plt.subplots_adjust(0.2,0.15,0.97,0.95)
     t = np.linspace(0,dt*N,N)
     #plt.plot(t, csv_velocity) # 入力信号
     plt.plot(t,df)
     plt.savefig(file_name+'_Displacement_元データ.png')
     
+    """
     #plt.rcParams["font.size"]=60
     plt.figure()
     plt.xlabel('Frequency [Hz]')
@@ -168,30 +176,58 @@ def fftplt_indiv(file_name, sample_count, dt):
     #plt.tick_params(labelsize=45)
     plt.subplots_adjust(0.2,0.15,0.97,0.95)
     #plt.plot(f[1:int(N/2)],np.abs((X)/(N/2))[1:int(N/2)])
-    plt.plot(f[0:int(N/2)],np.abs((X)/np.sqrt(N))[0:int(N/2)])
+    #plt.plot(f[0:int(N/2)],np.abs((X)/np.sqrt(N))[0:int(N/2)])
+    plt.plot(f[0:int(N/2)],np.abs(X)[0:int(N/2)])
     plt.savefig(file_name+'_frequency1-50.png')
+    """
+    freq_min = f[0]
+    freq_max = 600
 
     plt.figure()
-    plt.xlabel('Frequency [Hz]')
-    plt.xlim(f[0],600)
+    plt.xlabel('Freq [Hz]')
+    plt.xlim(freq_min,freq_max)
     #plt.xlim(f[1],50)
-    plt.ylabel('Amplitude')
+    plt.ylabel('Power spectol [μm^2]')
     #plt.ylim(0,0.3)
     #plt.tick_params(labelsize=45)
-    plt.subplots_adjust(0.2,0.15,0.97,0.95)
+    #plt.subplots_adjust(0.2,0.15,0.97,0.95)
     #plt.plot(f[1:int(N/2)],np.abs((X)/(N/2))[1:int(N/2)])
-    plt.plot(f[0:int(N/2)],np.abs((X)/np.sqrt(N))[0:int(N/2)])
-    plt.savefig(file_name+'_frequency1-500.png')
+    #plt.plot(f[0:int(N/2)],np.abs((X)/np.sqrt(N))[0:int(N/2)])
+    plt.plot(f[0:int(N/2)],np.abs(X)[0:int(N/2)])
+    plt.savefig(file_name+f'_frequency{freq_min}-{freq_max}.png')
 
     #plt.show()
 
-def butter_highpass_fillter(x, N, Wn, btype, analog, output,fs):
+def butter_highpass_fillter(x, N, Wn,fs):
     #N = フィルタ次数
     #Wn = カットオフ周波数
     #btype = フィルタのタイプ（highpass, lowpass, bandpass, bandstop）
     #analog = False, True
     #output = 出力のタイプ(ba, sos, zpk)
     #fs = デジタルフィルタの場合、サンプリング周波数
+    btype = "highpass"
+    analog = False
+    output = "sos"
+    sos = scipy.signal.butter(N, Wn, btype, analog, output, fs)
+
+    #sos = butterの戻り値
+    #x = 対象の波形
+    #axis = どの軸に沿ってフィルタをかけるか
+    #padtype = パディングのタイプ？
+    #padlen = パディングの長さ？
+    x = scipy.signal.sosfiltfilt(sos, x, axis=-1, padtype='odd', padlen=None)
+    return x
+    
+def butter_lowpass_fillter(x, N, Wn, fs):
+    #N = フィルタ次数
+    #Wn = カットオフ周波数
+    #btype = フィルタのタイプ（highpass, lowpass, bandpass, bandstop）
+    #analog = False, True
+    #output = 出力のタイプ(ba, sos, zpk)
+    #fs = デジタルフィルタの場合、サンプリング周波数
+    btype = "lowpass"
+    analog = False
+    output = "sos"
     sos = scipy.signal.butter(N, Wn, btype, analog, output, fs)
 
     #sos = butterの戻り値
@@ -203,18 +239,19 @@ def butter_highpass_fillter(x, N, Wn, btype, analog, output,fs):
     return x
     
 
-
 def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     #Lf = 切り出す窓の長さ
     N = sample_count
     fs = 1/dt
     #df = pd.read_csv(file_name)
 
-    s = np.loadtxt(file_name+'.txt')
+    s = np.loadtxt(file_name+'.txt')#sがスペクトグラムで利用するデータ
+    s = s * (10**6)#mからμmに単位変換
     velocity_list = s
     Wn = 50#カットオフ周波数
     order = 4#次数
-    filtered_data = butter_highpass_fillter(velocity_list, order, Wn, 'highpass', False, 'sos',fs)
+    filtered_data = butter_highpass_fillter(velocity_list, order, Wn,fs)
+    s=filtered_data
     r_mm = 30
     #corrected_data = correct_data(file_name,filtered_data,r_mm,sample_count,dt)
     
@@ -247,7 +284,7 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     s = displacement_list
     #---速度を変位に変換
     """
-    #s = [float(x) for x in text]  
+    #s = [float(x) for x in text]
 
     #s=corrected_data
     periodograms = []
@@ -257,17 +294,17 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     l = sample_count
     win = np.hanning(Lf)
     Mf = Lf//2 + 1
-    print(f"周波数データの点数：{Mf}")
+    print(f"周波数データの点数(ビン数)：{Mf}")
     Nf = int(np.ceil((l-noverlap)/(Lf-noverlap)))-1
     print(f"窓数：{Nf}")
     S = np.empty([Mf, Nf], dtype=np.complex128)
     for n in (range(Nf)):
         S[:,n] = np.fft.rfft(s[(Lf-noverlap)*n:(Lf-noverlap)*n+Lf] * win, n=Lf, axis=0)
-        periodogram = (np.abs(S[:,n]))**2
+        periodogram = (np.abs(S[:,n]))**2#パワースペクトルを計算
         periodograms.append(periodogram)
         S[0,n] = 0
     
-     # スペクトル平均化 (Welch法の中核)
+    # スペクトル平均化 (Welch法の中核)
     # 収集した全てのピリオドグラムを周波数ビンごとに平均化する
     averaged_psd = np.mean(periodograms, axis=0) 
     
@@ -295,9 +332,10 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     plt.savefig(file_name+'_spectrogram.png')
     """
     
-    S = S + 1e-18
-    #P = 20 * np.log10(np.abs(S))      #振幅スペクトル
-    P = 10 * np.log10((np.abs(S))**2) #パワースペクトル
+    
+    #P = 20 * np.log10(np.abs(S)+ 1e-18)      #振幅スペクトル
+    P = (np.abs(S))**2 #パワースペクトル
+    P = 10 * np.log10(P+1e-18)#パワースペクトルをdbに変換
     #P = P - np.max(P) # normalization
     #sp_abs = np.abs(S)
     sp_abs = P
@@ -312,8 +350,8 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
 
     vmin=(sp_abs[(freq_bottum <freq_sp) & (freq_sp < freq_upper), :]).min()
     vmax=(sp_abs[(freq_bottum <freq_sp) & (freq_sp < freq_upper), :]).max()
-    #vmin = -100
-    #vmax = 5
+    vmin = 15
+    vmax = 90
 
     #print((sp).shape)
     #print(type(sp_abs[1,1]))
@@ -348,7 +386,7 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
     plt.rcParams['ytick.major.size'] = 6
     plt.rcParams['ytick.minor.size'] = 3
     plt.rcParams['ytick.minor.visible'] = True
-    plt.rcParams["font.size"] = 40
+    plt.rcParams["font.size"] = 30
     plt.rcParams['font.family'] = 'Arial'
     plt.rcParams['agg.path.chunksize'] = 10000  # チャンクサイズを増やす
     plt.rcParams['path.simplify_threshold'] = 0.12  # パス簡略化の閾値を増やす
@@ -363,35 +401,32 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
 
     # 元データのプロット
     #ax1.set_xlim(tms, tme)
-    ax1.set_xlim(0.0,1.3)
+    ax1.set_xlim(0.0,dt*sample_count)
     ax1.set_xlabel('time [s]')
     ax1.tick_params(labelbottom=True)
     plt.tick_params(labelsize=20)
-    ax1.set_ylabel('Displacement [m]')
-    ax1.set_ylim(-0.00001,0.00001)#10μm、bensmaiaに合わせた
+    ax1.set_ylabel('Pos [μm]')
+    ax1.set_ylim(-15,15)#10μm、bensmaiaに合わせた
     #ax1.set_ylim(-0.075,0.01)
     nyquist = fs / 2
-    cutoff = 100  # あなたが設定したいカットオフ周波数
+    cutoff = 50  # あなたが設定したいカットオフ周波数
 
     print(f"サンプリング周波数 fs: {fs} Hz")
-    print(f"ナイキスト周波数 nyq: {nyquist} Hz")
-    print(f"指定カットオフ cutoff: {cutoff} Hz")
-    print(f"正規化周波数 Wn: {cutoff / nyquist}") # これが 1.0 を超えていませんか？
+    #print(f"ナイキスト周波数 nyq: {nyquist} Hz")
+    print(f"指定カットオフ cutoff: {Wn} Hz")
+    #print(f"正規化周波数 Wn: {cutoff / nyquist}") # これが 1.0 を超えていませんか？
     #ax1.plot(tm, velocity_list, c='black')
-    filtered_data = velocity_list#フィルタをかけない場合、これの下がハイパスをかける場合
-    Wn = 50#カットオフ周波数
-    order = 4#次数
-    filtered_data = butter_highpass_fillter(velocity_list, order, Wn, 'highpass', False, 'sos',fs)
+    
 
-    ax1.plot(tm, filtered_data, c='black')
+    ax1.plot(tm, s, c='black')
 
     # スペクトログラムのプロット
-    ax_sp1.set_xlim(0.0, 1.3)
+    ax_sp1.set_xlim(0.0, dt*sample_count)
     ax_sp1.set_xlabel('time [s]')
     ax_sp1.tick_params(labelbottom=True)
     plt.tick_params(labelsize=20)
     ax_sp1.set_ylim(freq_bottum, freq_upper)
-    ax_sp1.set_ylabel('Frequency\n[Hz]')
+    ax_sp1.set_ylabel('Freq [Hz]')
     
     norm = mpl.colors.Normalize(vmin, vmax)
     print("min = "+ str(vmin))
@@ -416,24 +451,24 @@ def STFT(sample_count, dt,file_name, Lf, noverlap=None):
                               
                               norm=norm,
                               orientation="vertical",
-                              label='Amplitude')
+                              label='PS [dB]')
     
-    #ax_sp1.plot(freq_sp, P_welch_db, c='blue') # PSDを線グラフでプロット
+    #ax_sp1.plot(freq_sp, P_welch_db, c='blue') # PSを線グラフでプロット
 
     #plt.gray
     
-
     plt.savefig(file_name+f'_displacement_spectrogram_{freq_bottum}-{freq_upper}.png')
     #plt.show()
     #plt.savefig(file_name+f'_displacement_periodogram_{freq_bottum}-{freq_upper}.png')
 
-
 def compute_welch_psd_and_plot(file_name, sampling_rate, window_length, overlap_samples=None):
     
     signal_data_np = np.loadtxt(file_name+'.txt')
+    signal_data_np = signal_data_np * (10**6)#mからμmに単位変換
     Wn = 50#カットオフ周波数
     order = 4#次数
-    signal_data_np = butter_highpass_fillter(signal_data_np, order, Wn, 'highpass', False, 'sos',sampling_rate)
+    signal_data_np = butter_highpass_fillter(signal_data_np, order, Wn,sampling_rate)
+
     # 引数の型チェックとデフォルト値の設定
     if not isinstance(signal_data_np, np.ndarray):
         raise TypeError("Input signal_data_np must be a NumPy array.")
@@ -473,7 +508,7 @@ def compute_welch_psd_and_plot(file_name, sampling_rate, window_length, overlap_
     print(f"  Overlap Samples: {overlap_samples}")
     print(f"  Hop Size: {hop_size} samples")
     print(f"  Number of Frames: {num_frames}")
-    print(f"  Nyquist Frequency (Mf): {num_freq_bins}")
+    #print(f"  Nyquist Frequency (Mf): {num_freq_bins}")
 
     # STFTの計算ループとピリオドグラムの収集
     for n in range(num_frames):
@@ -493,7 +528,9 @@ def compute_welch_psd_and_plot(file_name, sampling_rate, window_length, overlap_
         windowed_frame = current_frame * win # 窓関数を適用
         
         fft_result = np.fft.rfft(windowed_frame, n=window_length, axis=0) # 実数入力用FFT
-        periodogram = (np.abs(fft_result))**2 # 各セグメントのパワースペクトル（ピリオドグラム）を計算
+        delta_f = sampling_rate/window_length
+        periodogram = (np.abs(fft_result))**2 # 各セグメントのパワースペクトル（ピリオドグラム）を計算、周期信号が対象
+        #periodogram = periodogram/delta_f # 各セグメントのパワースペクトル密度を計算、連続ランダム信号が対象
         periodograms.append(periodogram)
 
     if not periodograms:
@@ -538,7 +575,8 @@ def compute_welch_psd_and_plot(file_name, sampling_rate, window_length, overlap_
     ax1.set_xlim(0.0, num_samples/sampling_rate) # 時間軸の表示範囲を信号全体に設定
     ax1.set_xlabel('Time [s]')
     ax1.tick_params(labelbottom=True, labelsize=16)
-    ax1.set_ylabel('Displacement [m]')
+    ax1.set_ylim(-15,15)
+    ax1.set_ylabel('Pos [μm]')
     
     time_axis_signal = np.linspace(0, num_samples/sampling_rate, num=num_samples)
     ax1.plot(time_axis_signal, signal_data_np, c='black')
@@ -553,10 +591,13 @@ def compute_welch_psd_and_plot(file_name, sampling_rate, window_length, overlap_
     freq_max_plot = 600 # ナイキスト周波数まで表示 (Hz)はしてない
     
     ax_psd.set_xlim(freq_min_plot, freq_max_plot)
-    ax_psd.set_xlabel('Frequency [Hz]')
+    ax_psd.set_xlabel('Freq [Hz]')
     ax_psd.tick_params(labelbottom=True, labelsize=16)
-    ax_psd.set_ylabel('Power Spectral Density [dB]')
-    ax_psd.set_title("Power Spectral Density (Welch's Method)")
+    #ax_psd.set_ylabel('Power Spectral Density [dB]')
+    #ax_psd.set_title("Power Spectral Density (Welch's Method)")
+    ax_psd.set_ylim(40,100)
+    ax_psd.set_ylabel('Power Spectral [dB]')
+    ax_psd.set_title("Power Spectral (Welch's Method)")
     
     # PSDのY軸範囲は自動調整が基本だが、必要に応じて固定値も設定可能 (例: ax_psd.set_ylim(-150, 0))
 
@@ -567,10 +608,56 @@ def compute_welch_psd_and_plot(file_name, sampling_rate, window_length, overlap_
     #os.makedirs(output_dir, exist_ok=True)
     #output_full_path = os.path.join(output_dir, f"{base_filename}.png")
     
-    output_full_path = file_name+'_welch_psd.png'
+    output_full_path = file_name+'_welch_ps.png'
     plt.savefig(output_full_path)
     #plt.show()
 
+def velocity_average(file_name, sample_count, dt):
+    N = sample_count
+    velocity_data = np.loadtxt(file_name+'.txt')
+    Wn = 50#カットオフ周波数
+    sampling_rate = 1/dt
+    order = 4
+    filtered_velocity_data = butter_lowpass_fillter(velocity_data,order,Wn,sampling_rate)
+
+    vel_sum = 0
+    filtered_vel_sum = 0
+    data_num = 0
+    for vel in velocity_data:
+        vel_sum += vel
+        data_num += 1
+    velocity_ave = vel_sum/data_num
+
+    for filtered_vel in filtered_velocity_data:
+        filtered_vel_sum += filtered_vel
+    filtered_velocity_ave = filtered_vel_sum/data_num
+
+
+    plt.figure()
+    plt.xlabel('time [s]')
+    plt.ylabel('Vel [m/s]')
+    plt.title(f"velocity_average: {velocity_ave} [m/s]")
+    #plt.ylim(-0.012,0.012)
+    #plt.tick_params(labelsize=45)
+    #plt.subplots_adjust(0.2,0.15,0.97,0.95)
+    t = np.linspace(0,dt*N,N)
+    #plt.plot(t, csv_velocity) # 入力信号
+    #plt.plot(t,velocity_data)
+    plt.savefig(file_name+'_velocity.png')
+
+    plt.figure()
+    plt.xlabel('time [s]')
+    plt.ylabel('filtered_Vel [m/s]')
+    plt.title(f"filtered_velocity_average: {filtered_velocity_ave} [m/s]")
+    #plt.ylim(-0.012,0.012)
+    #plt.tick_params(labelsize=45)
+    #plt.subplots_adjust(0.2,0.15,0.97,0.95)
+    t = np.linspace(0,dt*N,N)
+    #plt.plot(t, csv_velocity) # 入力信号
+    #plt.plot(t,filtered_velocity_data)
+    plt.savefig(file_name+'_filtered_velocity.png')
+    
+    return velocity_ave, filtered_velocity_ave
 
 
 def convertVelocity2Displacement(file_name, sample_count, dt):
@@ -605,7 +692,7 @@ def convertVelocity2Displacement(file_name, sample_count, dt):
     
     plt.figure()
     plt.xlabel('time [s]')
-    plt.ylabel('displacement [m]')
+    plt.ylabel('Pos [m]')
     #plt.ylim(-0.011,0.011)
     #plt.tick_params(labelsize=45)
     plt.subplots_adjust(0.2,0.15,0.97,0.95)
@@ -639,13 +726,125 @@ def fftplt_indiv_endless(data, sample_count, dt):
             
     f = np.fft.fftfreq(N,dt)
 
-    plt.xlabel('Frequency [Hz]')
+    plt.xlabel('Freq [Hz]')
     plt.xlim(f[0],600)
     plt.ylabel('Amplitude')
     plt.ylim(0,0.3)
     plt.subplots_adjust(0.2,0.15,0.97,0.95)
     plt.plot(f[0:int(N/2)],np.abs((X)/np.sqrt(N))[0:int(N/2)])
 
+
+def plot_group_comparison(freq, group_a_data, group_b_data):
+    """
+    freq: 周波数軸
+    group_a_data: (10, N) の形状を持つ配列（条件Aのデータ10個分）
+    group_b_data: (10, N) の形状を持つ配列（条件Bのデータ10個分）
+    """
+    
+    # 1. 各グループの平均と標準偏差を計算 (axis=0 は「データセット方向」の計算)
+    mean_a = np.mean(group_a_data, axis=0)
+    std_a = np.std(group_a_data, axis=0)
+    
+    mean_b = np.mean(group_b_data, axis=0)
+    std_b = np.std(group_b_data, axis=0)
+    
+    plt.figure(figsize=(10, 6))
+    
+    # --- グループAの描画 ---
+    # 平均値を実線でプロット
+    plt.plot(freq, mean_a, color='blue', label='Sandpaper #40 (Mean)')
+    # 平均 ± 標準偏差 の範囲を塗りつぶす (alphaで透明度指定)
+    plt.fill_between(freq, mean_a - std_a, mean_a + std_a, color='blue', alpha=0.2, label='#40 (Std Dev)')
+    
+    # --- グループBの描画 ---
+    plt.plot(freq, mean_b, color='red', label='Sandpaper #400 (Mean)')
+    plt.fill_between(freq, mean_b - std_b, mean_b + std_b, color='red', alpha=0.2, label='#400 (Std Dev)')
+    
+    plt.xlabel('Frequency [Hz]')
+    #plt.ylabel('Power Spectral Density')
+    plt.ylabel('Power Spectral [dB]')
+    plt.xlim(50,1000)
+    plt.ylim(40,100)
+    plt.title('Comparison of Spectral Characteristics (Mean ± SD)')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('C:/Users/yuto/Documents/system_python/data/LDVdata/Comparison_of_Spectral.png')
+    plt.show()
+
+
+def group_comparison(file_name_list,sampling_rate, window_length, overlap_samples=None):
+    rootDir = 'C:/Users/yuto/Documents/system_python/data/LDVdata/'
+    group = []
+    group_A = []
+    group_B = []
+    Wn = 50#カットオフ周波数
+    order = 4#次数
+    for file in file_name_list:
+        for num in range(10):
+            file_name = file+f"_{num+1}"
+            print(f"file_name: {file_name}")
+            pos_data = np.loadtxt(rootDir+file_name+'.txt')
+            pos_data = pos_data * (10**6)#mからμmに単位変換
+            pos_data = butter_highpass_fillter(pos_data, order, Wn, sampling_rate)
+            if overlap_samples is None:
+                overlap_samples = window_length // 2
+
+            # 信号の基本情報
+            num_samples = pos_data.shape[0] # 信号の総サンプル数
+            win = np.hanning(window_length) # ハニング窓を生成 
+
+            # STFT/Welch法計算のためのパラメータ
+            num_freq_bins = window_length // 2 + 1 # rfftの結果の有効な周波数ビンの数 (DC成分とナイキスト周波数成分を含む)
+            hop_size = window_length - overlap_samples # 窓の移動量 (ホップサイズ)
+            if num_samples < window_length:
+                num_frames = 1
+            else:
+                # 窓が完全に収まる最後の位置までのフレーム数 + 1 (最初のフレーム)
+                num_frames = (num_samples - window_length) // hop_size + 1
+            
+            if num_frames <= 0 and num_samples > 0: # 信号があるのにフレーム数が0になる非常に短い信号の場合
+                num_frames = 1
+
+            # 各フレームのパワースペクトル（ピリオドグラム）を一時的に格納するリスト
+            periodograms = []
+            # STFTの計算ループとピリオドグラムの収集
+            for n in range(num_frames):
+                start_idx = n * hop_size
+                end_idx = start_idx + window_length
+
+                current_frame = np.zeros(window_length) # ゼロで埋めたフレームを作成
+                
+                # 実際にデータがある部分をコピーし、窓長に満たない部分はゼロパディングされる
+                data_to_copy_len = min(window_length, num_samples - start_idx)
+                
+                if data_to_copy_len <= 0: # 処理すべきデータがもうない場合
+                    break
+
+                current_frame[:data_to_copy_len] = pos_data[start_idx : start_idx + data_to_copy_len]
+                
+                windowed_frame = current_frame * win # 窓関数を適用
+                
+                fft_result = np.fft.rfft(windowed_frame, n=window_length, axis=0) # 実数入力用FFT
+                delta_f = sampling_rate/window_length
+                periodogram = (np.abs(fft_result))**2 # 各セグメントのパワースペクトル（ピリオドグラム）を計算、周期信号が対象
+                #periodogram = periodogram/delta_f # 各セグメントのパワースペクトル密度を計算、連続ランダム信号が対象
+                periodograms.append(periodogram)
+                # スペクトル平均化 (Welch法の中核)
+                # 収集した全てのピリオドグラムを周波数ビンごとに平均化する
+                averaged_psd = np.mean(periodograms, axis=0)
+                
+                # パワースペクトルをdBスケールに変換 (0の対数を避けるため微小値1e-18を加算)
+                P_welch_db = 10 * np.log10(averaged_psd + 1e-18) 
+            
+                #P_welch_db = averaged_psd
+
+            group.append(P_welch_db)
+    group_A = group[:10]
+    group_B = group[10:]
+    # 周波数軸の生成
+    freq_axis = np.fft.rfftfreq(window_length, 1/sampling_rate)
+    plot_group_comparison(freq_axis, group_A, group_B)
+    return 0
 
 """
 if __name__ == "__main__":
@@ -701,9 +900,45 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     sample_count = 2**17
     dt = 1/218750
-    window_length = 2**14
+    window_length = 2**15
     rootDir = 'C:/Users/yuto/Documents/system_python/data/LDVdata/'
-    file_name = "20251208_1804_3"
+    """
+    file_name = "20251215_1144_4"
     STFT(sample_count, dt, rootDir+file_name, 2**14)
     fftplt_indiv(rootDir+file_name, sample_count, dt)
     compute_welch_psd_and_plot(rootDir+file_name, 1/dt, window_length, overlap_samples=None)
+    """
+    #file_list = ["20251215_1132","20251215_1133","20251215_1134","20251215_1135","20251215_1142","20251215_1144","20251215_2019","20251215_2020","20251215_2022"]
+    file_list = ["20251217_1813","20251217_1816","20251217_1818","20251217_1821","20251217_1823","20251217_1825","20251217_1826","20251217_1827","20251217_1829","20251217_2051","20251217_2052"]
+    #file_list = ["20251217_2051","20251217_2052"]
+    #file_list = ["20251217_1813","20251217_1821"]
+    file_list = ["20251223_1852","20251223_1855"]
+
+    group_comparison(file_list,1/dt, window_length, overlap_samples=None)
+    velocity_data = []
+    filtered_velocity_data = []
+    
+
+    for file in file_list:
+        for num in range(10):
+            file_name = file+f"_{num+1}"
+            file_name = file+f"_velocity_{num+1}"
+            #STFT(sample_count, dt, rootDir+file_name, 2**14)
+            #fftplt_indiv(rootDir+file_name, sample_count, dt)
+            #compute_welch_psd_and_plot(rootDir+file_name, 1/dt, window_length, overlap_samples=None)
+            data,filtered_data = velocity_average(rootDir+file_name,sample_count, dt)
+            velocity_data.append(data)
+            filtered_velocity_data.append(filtered_data)
+    group_A = velocity_data[:10]
+    group_B = velocity_data[10:]
+
+    mean_A = np.mean(group_A, axis=0)
+    std_A = np.std(group_A, axis=0)
+
+    mean_B = np.mean(group_B, axis=0)
+    std_B = np.std(group_B, axis=0)
+
+    print(f"Sandpaper_#40_velocity_mean  : {mean_A *1000} [mm/s]")
+    print(f"Sandpaper_#40_velocity_SD    : {std_A*1000} [mm/s]")
+    print(f"Sandpaper_#400_velocity_mean : {mean_B *1000} [mm/s]")
+    print(f"Sandpaper_#400_velocity_SD   : {std_B*1000} [mm/s]")
