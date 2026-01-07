@@ -2,6 +2,7 @@
 # Released under the terms of the GNU Lesser General Public License version 3.
 import logging
 import time
+import numpy as np
 
 from .config import DaqConfig, ConfigurationError, log_config
 
@@ -242,7 +243,7 @@ def __acquire_data_ver2(communication, data_acquisition, daq_config, sample_coun
     """
     #print("__acquire_data is doing")
     #data = ""
-    data = []
+    chunks = []
     # Gather DAQ configuration and other necessary information
     is_block_mode = daq_config.daq_mode == "Block"
     block_count = daq_config.block_count if is_block_mode else 1
@@ -266,16 +267,39 @@ def __acquire_data_ver2(communication, data_acquisition, daq_config, sample_coun
         # Blocks until the specified amount of samples is available to be extracted
         data_acquisition.read_data(base_sample_count, timeout_ms)
 
+        validity_samples = None
+        velocity_channel = None
+
         # Copy the data for each active channel to its respective buffer in the active channels list
         for channel in limited_active_channels:
             sample_count = data_acquisition.extracted_sample_count(channel["Type"], channel["ID"])
-            channel["Samples"] = data_acquisition.get_int32_data(channel["Type"], channel["ID"], sample_count)
+            raw_data = np.array(data_acquisition.get_int32_data(channel["Type"], channel["ID"], sample_count))
+            channel["Samples"] = raw_data
             #print(f"channel is {channel}\n")
 
+        if channel["Type"] == ChannelType.DataValidity:
+            validity_samples = raw_data
+        elif channel["Type"] == ChannelType.Velocity:
+            velocity_channnel = channel
+
+        # 1. Validityチェック (ベクトル化: ループなしで一括判定)
+        if validity_samples is not None:
+            # 0が含まれていればFalse、すべて非0ならTrue
+            if not np.all(validity_samples):
+                 raise RuntimeError("Data packet lost")
+
+        # 2. データのスケーリングと格納 (ベクトル化)
+        if velocity_channel is not None:
+            # 全要素に対して一括で掛け算を行う
+            scaled_chunk = velocity_channel["Samples"] * velocity_channel['ScaleFactor']
+            chunks.append(scaled_chunk)
+        
+        """
         # Write the acquired data to the CSV file csvファイルではなく、直接データの受け渡しに変更
         chunk_timestamp = ((base_samples_written * frequency_factor) - pre_post_trigger) * sample_interval
-        data.append(__write_chunk_data(limited_active_channels, base_sample_count, frequency_factor,
+        chunks.append(__write_chunk_data(limited_active_channels, base_sample_count, frequency_factor,
                                           chunk_timestamp, sample_interval))
+        """
             
         base_samples_written += base_sample_count
     #end = time.time()
@@ -284,6 +308,10 @@ def __acquire_data_ver2(communication, data_acquisition, daq_config, sample_coun
     logging.info("Acquisition complete")
     data_acquisition.stop_data_acquisition()
     #print("__acquire_data was done")
+    if len(chunks) > 0:
+        data = np.concatenate(chunks)
+    else:
+        data = np.array([])
     return data
     # [acquire_data]
 
