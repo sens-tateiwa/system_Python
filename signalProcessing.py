@@ -771,7 +771,7 @@ def plot_group_comparison(freq, group_a_data, group_b_data):
     plt.savefig('C:/Users/yuto/Documents/system_python/data/LDVdata/Comparison_of_Spectral.png')
     plt.show()
 
-
+#10個ずつのデータ(file_name_{i:(1~10)}.txt)を持ったfile_nameを2つ準備する。そのfile_name2つをリストにしたfile_name_listを渡す
 def group_comparison(file_name_list,sampling_rate, window_length, overlap_samples=None):
     rootDir = 'C:/Users/yuto/Documents/system_python/data/LDVdata/'
     group = []
@@ -918,7 +918,6 @@ if __name__ == "__main__":
     velocity_data = []
     filtered_velocity_data = []
     
-
     for file in file_list:
         for num in range(10):
             file_name = file+f"_{num+1}"

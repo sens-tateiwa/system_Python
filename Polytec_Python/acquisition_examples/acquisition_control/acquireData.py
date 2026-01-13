@@ -258,14 +258,14 @@ def __acquire_data_ver2(communication, data_acquisition, daq_config, sample_coun
         raise RuntimeError("Endless block mode (blockCount=0) is not supported by this example. "
                            "Configure a block count > 0.")
 
-    data_acquisition.start_data_acquisition()
+    data_acquisition.start_data_acquisition()#計測機器からリングバッファにデータ転送を開始する指示
     
     base_samples_written = 0
     #start = time.time()
     while base_samples_written < block_size:
         base_sample_count = min(base_samples_chunk_size, block_size - base_samples_written)
         # Blocks until the specified amount of samples is available to be extracted
-        data_acquisition.read_data(base_sample_count, timeout_ms)
+        data_acquisition.read_data(base_sample_count, timeout_ms)#リングバッファから計測データバッファにデータを切り出し転送する指示
 
         validity_samples = None
         velocity_channel = None
@@ -273,14 +273,14 @@ def __acquire_data_ver2(communication, data_acquisition, daq_config, sample_coun
         # Copy the data for each active channel to its respective buffer in the active channels list
         for channel in limited_active_channels:
             sample_count = data_acquisition.extracted_sample_count(channel["Type"], channel["ID"])
-            raw_data = np.array(data_acquisition.get_int32_data(channel["Type"], channel["ID"], sample_count))
+            raw_data = np.array(data_acquisition.get_int32_data(channel["Type"], channel["ID"], sample_count))#計測データバッファからデータを受け取る部分
             channel["Samples"] = raw_data
             #print(f"channel is {channel}\n")
 
         if channel["Type"] == ChannelType.DataValidity:
             validity_samples = raw_data
         elif channel["Type"] == ChannelType.Velocity:
-            velocity_channnel = channel
+            velocity_channel = channel
 
         # 1. Validityチェック (ベクトル化: ループなしで一括判定)
         if validity_samples is not None:
@@ -309,9 +309,90 @@ def __acquire_data_ver2(communication, data_acquisition, daq_config, sample_coun
     data_acquisition.stop_data_acquisition()
     #print("__acquire_data was done")
     if len(chunks) > 0:
-        data = np.concatenate(chunks)
+        data = np.concatenate(chunks)#chunks内にリストが複数あるため、それを一つのリストに結合
     else:
-        data = np.array([])
+        data = np.array([])#データがなければ空のリスト
+    return data
+    # [acquire_data]
+
+    # [acquire_data]
+def _acquire_data_ver3(data_acquisition, sample_count, block_size,limited_active_channels, base_samples_chunk_size,
+                          timeout_ms=2000):
+    """
+    Acquire data over an existing Data Acquisition connection
+    ・リングバッファをstartし、LDVからリングバッファにデータ転送を開始する
+    ・リングバッファからblock_size文だけデータを分割して取得する
+    ・DataValidityで連続データに漏れがないか判定
+    ・取得した速度データ(Samples)をScaleFactorでスケーリングする
+    ・sample_count分だけデータを取得したら、リングバッファをstopし、得られたデータをまとめてreturnする
+
+    Args:
+        communication:              The DeviceCommunication instance
+        data_acquisition:           The DataAcquisition instance
+        daq_config:                 The DaqConfig instance
+        sample_count:               The amount of base samples to acquire when streaming
+        base_samples_chunk_size:    The amount of base samples to read at once from a device
+        timeout_ms:                 The acquisition timeout
+        base_file_name:             The base file name format string used for all CSV files created
+    """
+    #print("__acquire_data is doing")
+    #data = ""
+    chunks = []
+    
+    data_acquisition.start_data_acquisition()#計測機器からリングバッファにデータ転送を開始する指示,ここより上を一回だけ読み込んで、これ以下をupdateに持ってくる
+    
+    base_samples_written = 0
+    #start = time.time()
+    while base_samples_written < block_size:
+        base_sample_count = min(base_samples_chunk_size, block_size - base_samples_written)
+        # Blocks until the specified amount of samples is available to be extracted
+        data_acquisition.read_data(base_sample_count, timeout_ms)#リングバッファから計測データバッファにデータを切り出し転送する指示
+
+        validity_samples = None
+        velocity_channel = None
+
+        # Copy the data for each active channel to its respective buffer in the active channels list
+        for channel in limited_active_channels:
+            sample_count = data_acquisition.extracted_sample_count(channel["Type"], channel["ID"])
+            raw_data = np.array(data_acquisition.get_int32_data(channel["Type"], channel["ID"], sample_count))#計測データバッファからデータを受け取る部分
+            channel["Samples"] = raw_data
+            #print(f"channel is {channel}\n")
+
+        if channel["Type"] == ChannelType.DataValidity:
+            validity_samples = raw_data
+        elif channel["Type"] == ChannelType.Velocity:
+            velocity_channel = channel
+
+        # 1. Validityチェック (ベクトル化: ループなしで一括判定)
+        if validity_samples is not None:
+            # 0が含まれていればFalse、すべて非0ならTrue
+            if not np.all(validity_samples):
+                 raise RuntimeError("Data packet lost")
+
+        # 2. データのスケーリングと格納 (ベクトル化)
+        if velocity_channel is not None:
+            # 全要素に対して一括で掛け算を行う
+            scaled_chunk = velocity_channel["Samples"] * velocity_channel['ScaleFactor']
+            chunks.append(scaled_chunk)
+        
+        """
+        # Write the acquired data to the CSV file csvファイルではなく、直接データの受け渡しに変更
+        chunk_timestamp = ((base_samples_written * frequency_factor) - pre_post_trigger) * sample_interval
+        chunks.append(__write_chunk_data(limited_active_channels, base_sample_count, frequency_factor,
+                                          chunk_timestamp, sample_interval))
+        """
+            
+        base_samples_written += base_sample_count
+    #end = time.time()
+    #print(f"time is {end - start}")
+
+    logging.info("Acquisition complete")
+    data_acquisition.stop_data_acquisition()
+    #print("__acquire_data was done")
+    if len(chunks) > 0:
+        data = np.concatenate(chunks)#chunks内にリストが複数あるため、それを一つのリストに結合
+    else:
+        data = np.array([])#データがなければ空のリスト
     return data
     # [acquire_data]
 
@@ -369,4 +450,60 @@ def acquire_data(communication, sample_count=None, base_samples_chunk_size=250, 
                           timeout_ms)
     #print("acquire_data was done")
     return data
+    # [acquire_data]
+
+    
+# [acquire_data]
+def acquire_data_ver2(communication, sample_count=None, base_samples_chunk_size=250):
+    """
+    Acquire data from a device and write it to CSV files
+    ・communication:    Device communication interface Python wrapper
+    ・daq_config:       Thd data acquisition configurator class is used to configure a device for a data acquisition
+    ・data_acquisition: Data Acquisition interface Python wrapper
+
+    Args:
+        communication:              A DeviceCommunication instance providing the connection to the device
+        sample_count:               The amount of base samples to acquire (overwrite block size in block mode)
+        base_samples_chunk_size:    The amount of base samples to read at once from a device
+        timeout_ms:                 The acquisition timeout
+        base_file_name:             The base file name format string used for all CSV files created
+                                    (supports {date}, {time} and {block_id} placeholders)
+    """
+    __test_not_iq_mode(communication)
+
+    # Load the data acquisition configuration
+    daq_config = DaqConfig(communication)
+
+    if daq_config.daq_mode == "Streaming" and sample_count is None:
+        raise RuntimeError("No sample count specified. Sample count is mandatory for streaming.")
+
+    # Log the data acquisition configuration
+    logging.info(40*"-")
+    log_config(daq_config)
+    logging.info(40*"-")
+
+    # Calculate the data acquisition ring buffer size (for streaming the buffer should be able
+    # to hold all data expected to be acquired if real time processing is not guaranteed)
+    buffer_capacity = sample_count if daq_config.daq_mode == "Streaming" else 10*base_samples_chunk_size
+
+    data_acquisition = DataAcquisition(communication, buffer_capacity)
+
+    #data = __acquire_data_ver2(communication, data_acquisition, daq_config, sample_count, base_samples_chunk_size,
+    #                      timeout_ms)
+
+    # Gather DAQ configuration and other necessary information
+    is_block_mode = daq_config.daq_mode == "Block"
+    block_count = daq_config.block_count if is_block_mode else 1
+    block_size = daq_config.block_size if is_block_mode else sample_count
+    pre_post_trigger = daq_config.pre_post_trigger if is_block_mode else 0
+    frequency_factor = __calculate_frequency_factor(communication)
+    sample_interval = 1 / (data_acquisition.base_sample_rate_in_hz() * frequency_factor)
+    active_channels = __get_active_channels(communication, data_acquisition)
+    limited_active_channels = [channel for channel in active_channels if channel["Type"] == ChannelType.DataValidity or channel["Type"] == ChannelType.Velocity]
+
+    if block_count == 0:
+        raise RuntimeError("Endless block mode (blockCount=0) is not supported by this example. "
+                           "Configure a block count > 0.")
+
+    return data_acquisition, block_size,limited_active_channels, base_samples_chunk_size
     # [acquire_data]

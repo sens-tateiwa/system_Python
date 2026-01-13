@@ -50,6 +50,22 @@ def run(address, sample_count=10000):
     return data
 # [run]
 
+def connect_device(address,sample_count=10000):
+    try:
+        device_communication = DeviceCommunication(address)
+
+        # configure acquisition
+        config = DaqConfig(device_communication)
+        config.daq_mode = "Streaming"
+
+        # perform acquisition of 10000 base samples (samples in lowest common denominator sample rate of all channel)
+        data_acquisition, block_size,limited_active_channels, base_samples_chunk_size = acquireData.acquire_data_ver2(device_communication, sample_count)
+    except Exception as e:
+        logging.error(e)
+        data = 0
+    
+    return device_communication, data_acquisition, block_size,limited_active_channels, base_samples_chunk_size
+
 
 if __name__ == "__main__":
     ip_address = prepare()

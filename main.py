@@ -92,7 +92,7 @@ def run_endless():
     lastdata_queue = multiprocessing.Queue(maxsize=1)#共有のQueueを作成、できるならshared_memoryの方がよい
 
     try:
-        dataAquisition = controlLDV.DataAquisition(cameraGrabingFinish,sample_count,new_bandwidth,new_range,lastdata_queue)
+        dataAquisition = controlLDV.UseLDV(cameraGrabingFinish,sample_count,new_bandwidth,new_range,lastdata_queue)
         dataAquisition_process=multiprocessing.Process(target=dataAquisition.animate, args=())
 
         
@@ -127,7 +127,7 @@ def run_endless():
 
         #下のQueueを受け取る部分もデータがあること前提であるため、
         # 計測開始前に終了するなどのデータがないことを想定した動作が必要
-        acquired_data = lastdata_queue.get()
+        acquired_data = lastdata_queue.get()#データを受け取るまで次の行に進まない
         num_data_chunk = acquired_data.shape[0]
         num_one_data = acquired_data.shape[1]
         print(f"num_data_chunck = {num_data_chunk}")
@@ -149,7 +149,7 @@ def run_endless():
             print("creating queue")
             time.sleep(1)
         dataAquisition_process.join()#メインプロセスに終わったことを通知する（メインプロセスに合流する）
-
+        
         rootDir = 'C:/Users/yuto/Documents/system_python/data/LDVdata'
         now = datetime.datetime.now()
         name = now.strftime("%Y%m%d_%H%M")
