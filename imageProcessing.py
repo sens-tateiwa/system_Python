@@ -249,15 +249,15 @@ if __name__ == "__main__":
     rootDir = 'C:/Users/yuto/Documents/system_python/data'
     dataName = '20250703_151737_list/image_353.png'
 
-    laserImage = 'Image__2025-12-15__11-28-42.png'
+    laserImage = 'Image__2026-04-27__14-10-10.png'
 
     OrizinalImage = 'Image__2025-11-11__10-36-38.png'
 
     laser_point = calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
 
     #画像読み込み
-    #image = cv2.imread('C:/Users/yuto/Documents/system_python/'+laserImage, cv2.IMREAD_COLOR)
-    image = cv2.imread("C:/Users/yuto/Downloads/"+OrizinalImage, cv2.IMREAD_COLOR)
+    image = cv2.imread('C:/Users/yuto/Documents/system_python/'+laserImage, cv2.IMREAD_COLOR)
+    #image = cv2.imread("C:/Users/yuto/Downloads/"+OrizinalImage, cv2.IMREAD_COLOR)
     image = changeScale(image)
 
     radius = 120    
@@ -265,7 +265,7 @@ if __name__ == "__main__":
 
     image,distance = calculateCentor2FingerDistance(image,  image_template, laser_point, isPlotMatchpoint=True)
 
-    cv2.imwrite("C:/Users/yuto/Downloads/matching_"+OrizinalImage,image)
+    #cv2.imwrite("C:/Users/yuto/Downloads/matching_"+OrizinalImage,image)
     
     cv2.imshow("template image",image)
     cv2.waitKey(0)

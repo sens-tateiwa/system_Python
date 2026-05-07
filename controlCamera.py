@@ -282,7 +282,7 @@ if __name__ == "__main__":
     timeout_ms = 5
     timelimit_s = 10
     #getCameraImage(timelimit_s,timeout_ms)
-    videoname = "20251215_111614"
+    videoname = "20260427_144730"
     videoDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'.mp4'
     rootDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'_list'
     try:
@@ -291,7 +291,7 @@ if __name__ == "__main__":
         pass
 
     
-    laserImage = 'Image__2025-12-13__16-23-45.png'
+    laserImage = 'Image__2026-04-27__14-10-10.png'
 
     laser_point = imageProcessing.calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
 

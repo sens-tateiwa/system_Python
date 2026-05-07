@@ -7,6 +7,8 @@ import sharedFlag
 import controlGUI
 import signalProcessing
 import controlMirror
+import controlRobotArm
+
 import sys
 import datetime
 import numpy as np
@@ -68,7 +70,6 @@ def event_controlLDV_endless(event, sample_count, new_bandwidth, new_range):
     event.wait()
     controlLDV.run_endless(sample_count, new_bandwidth, new_range)
 
-#動作未確認
 def run_endless():
     timeout_ms = 5
     timelimit_s = 50
@@ -78,13 +79,14 @@ def run_endless():
     new_range="200 mm/s"    #[range_selection]     Available items: 2 m/s, 1 m/s, 500mm/s, 200 mm/s, 100 mm/s, 50 mm/s, 20 mm/s, 10 mm/s
     isPlotMatchpoint=False
     rootDir = 'C:/Users/yuto/Documents/system_python'
-    laserImage = 'Image__2025-12-23__18-40-48.png'
+    laserImage = 'Image__2026-04-27__14-10-10.png'
     laser_point = imageProcessing.calculateLaserPoint(rootDir+'/'+laserImage)
 
 
     startLDV = multiprocessing.Event()           #LDVの計測を開始させるフラグ、カメラ追従が起動したらsetする
     cameraGrabingFinish = multiprocessing.Event()#カメラの連続撮影が終了したかどうかのフラグ
     prepareMirror = multiprocessing.Event()      #ミラーが追従開始位置にセットされたかどうかのフラグ
+    isArmMoving = multiprocessing.Event()        #ロボットアームが動いている間はsetするフラグ、ロボットが動いていない時はclearする
 
     prepareLaserPosition = multiprocessing.Queue(maxsize=1)#開始前にGUIで設定したミラーの角度（レーザの位置）を共有するためのqueue
 
@@ -92,10 +94,11 @@ def run_endless():
     lastdata_queue = multiprocessing.Queue(maxsize=1)#共有のQueueを作成、できるならshared_memoryの方がよい
 
     try:
-        dataAquisition = controlLDV.UseLDV(cameraGrabingFinish,sample_count,new_bandwidth,new_range,lastdata_queue)
+        dataAquisition = controlLDV.UseLDV(cameraGrabingFinish,sample_count,new_bandwidth,new_range,lastdata_queue,isArmMoving)
         dataAquisition_process=multiprocessing.Process(target=dataAquisition.animate, args=())
 
-        
+        useRobotArm_process = multiprocessing.Process(target=controlRobotArm.run_robot_process, args= (cameraGrabingFinish, isArmMoving))
+
         buttonWindow = controlGUI.ButtonWindow(MirrorAngle_queue,prepareLaserPosition,cameraGrabingFinish)
         button_process = multiprocessing.Process(target=buttonWindow.run,args=())
         
@@ -107,6 +110,7 @@ def run_endless():
         # 2つの子プロセスで同時にミラー（ハードウェア）に接続しようとするとエラーが発生し、片方を初期設定後に切断できなかったため、
         # メインプロセスから2つのプロセス（カメラとGUI）を実行するのではなく、GUIを子プロセスではなく、カメラプロセス内でimportして
         # カメラプロセス（頻繁に高速でミラー制御を行う方のプロセス）内でGUI（ボタン）を表示するclassを実行するように変更した
+        useRobotArm_process.start()
         controlMirror_process.start()
         prepareMirror.wait()#ミラーの接続が確立されるまで待機
 
@@ -140,6 +144,8 @@ def run_endless():
         button_process.join()
         controlMirror_process.terminate()
         controlMirror_process.join()
+        useRobotArm_process.terminate()
+        useRobotArm_process.join()
         while controlCamera_process.is_alive():
             print("creating video")
             time.sleep(1)

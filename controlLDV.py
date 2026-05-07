@@ -15,6 +15,7 @@ from matplotlib import animation
 
 import signalProcessing
 
+
 from Polytec_Python.acquisition_examples import acquire_streaming
 from Polytec_Python.acquisition_examples.acquisition_control import acquireData
 from Polytec_Python.acquisition_examples import changeBandwidthandRange
@@ -72,10 +73,11 @@ def run(sample_count=2**17, new_bandwidth="1 kHz", new_range="10 mm/s"):
     return file_name
 
 class UseLDV:
-    def __init__(self,cameraGrabingFinish,sample_count, new_bandwidth,new_range,lastdata_queue):
+    def __init__(self,cameraGrabingFinish,sample_count, new_bandwidth,new_range,lastdata_queue,isArmMoving):
         self.ip_address = "192.168.137.1"
 
         self.cameraFinishFlag = cameraGrabingFinish
+        self.isArmMoving = isArmMoving
 
         self.new_bandwidth = new_bandwidth
         self.new_range = new_range
@@ -96,6 +98,8 @@ class UseLDV:
         self.block_size = None
         self.limited_active_channels = None
         self.base_samples_chunk_size = None
+
+        
 
     def cleanup(self):
         print("終了処理を開始します...")
@@ -125,7 +129,14 @@ class UseLDV:
         #base_samples_chunk_size: The amount of base samples to read at once from a device
 
         #velocity_list = acquire_streaming.run(self.ip_address,self.N)
+        
+        #ここにロボットアームを動かす処理、ロボットアームの動き終わりまで待機する必要がある？
+        while(self.isArmMoving.is_set()):#前回の指令によるロボットアームの動きが終わるまで待機
+            print("RobotArm is moving")
+        self.isArmMoving.set()#ロボットアームを動かす指令を送信
+        
         velocity_list = acquireData._acquire_data_ver3(self.data_acquisition, self.N, self.block_size,self.limited_active_channels, self.base_samples_chunk_size)
+        
         
 
         return velocity_list

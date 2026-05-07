@@ -51,7 +51,7 @@ class ButtonWindow:
         window_height = 280
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
-
+        
         x_pos = screen_width - window_width - 30
         y_pos = 0 + 30
 
