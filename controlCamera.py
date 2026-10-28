@@ -156,6 +156,7 @@ def getCameraImage(event, laser_point, timeout_ms,timelimit_s=10,isPlotMatchpoin
         
     #sharedFlag.set_CameraGrabbing_flag(False)    
     #---撮影の終了
+    cv2.destroyAllWindows()
     print(f"cameragrab start time is {t1}")
     print(f"cameragrab end time is {t2}")
     controlMirror.changeAngle(0,0,mre2)
@@ -196,6 +197,7 @@ def getCameraImage_endless(MirrorAngle_queue,prepareLaserPosition,startLDVFlag,c
     camera.Gain.SetValue(18.0)
 
     image_list = []
+    frame_count = 0
 
     
     intervalX = 0.01/126
@@ -212,7 +214,7 @@ def getCameraImage_endless(MirrorAngle_queue,prepareLaserPosition,startLDVFlag,c
     now = datetime.datetime.now()
     videoname = now.strftime("%Y%m%d_%H%M%S")
 
-    radius = 100    
+    radius = 80    
     image_template = imageProcessing.createTemplateCircleImage(radius)
 
 
@@ -229,6 +231,15 @@ def getCameraImage_endless(MirrorAngle_queue,prepareLaserPosition,startLDVFlag,c
             #取得した画像の処理を実行
             image = imageProcessing.changeScale(image)
             image,distance = imageProcessing.calculateCentor2FingerDistance(image,  image_template, laser_point, isPlotMatchpoint)
+
+
+            frame_count += 1
+            if frame_count % 3 == 0:
+                cv2.imshow("Camera Live", image)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    camera.StopGrabbing()
+                    cameraGrabingFinish.set()
+                    print("camera stop grabbing")
 
             image_list.append(image)
             
@@ -249,6 +260,8 @@ def getCameraImage_endless(MirrorAngle_queue,prepareLaserPosition,startLDVFlag,c
 
             grab.Release()
         t2 = time.time()
+
+
 
         #cv2.imwrite('C:/Users/yuto/Documents/system_python/data/'+str(datetime.datetime.now())+'.png', img)    #取得した配列を名前を付けてコンピュータに保存
         if((t2-t1)>timelimit_s):#timelimit秒後
@@ -282,7 +295,7 @@ if __name__ == "__main__":
     timeout_ms = 5
     timelimit_s = 10
     #getCameraImage(timelimit_s,timeout_ms)
-    videoname = "20260427_144730"
+    videoname = "20260710_151416"
     videoDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'.mp4'
     rootDir = 'C:/Users/yuto/Documents/system_python/data/'+videoname+'_list'
     try:
@@ -291,7 +304,7 @@ if __name__ == "__main__":
         pass
 
     
-    laserImage = 'Image__2026-04-27__14-10-10.png'
+    laserImage = 'Image__2026-08-17__14-16-11.png'
 
     laser_point = imageProcessing.calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
 
@@ -300,7 +313,7 @@ if __name__ == "__main__":
     image_list = []
     result_videoName = videoname+'_slow'
     
-    radius = 120    
+    radius = 80  
     image_template = imageProcessing.createTemplateCircleImage(radius)
 
     files = glob.glob(rootDir+"/*.png")

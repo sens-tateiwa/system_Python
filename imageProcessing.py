@@ -249,9 +249,9 @@ if __name__ == "__main__":
     rootDir = 'C:/Users/yuto/Documents/system_python/data'
     dataName = '20250703_151737_list/image_353.png'
 
-    laserImage = 'Image__2026-04-27__14-10-10.png'
+    laserImage = 'Image__2026-09-28__17-29-56.png'
 
-    OrizinalImage = 'Image__2025-11-11__10-36-38.png'
+    OrizinalImage = 'Image__2026-09-28__17-29-56.png'
 
     laser_point = calculateLaserPoint('C:/Users/yuto/Documents/system_python/'+laserImage)
 

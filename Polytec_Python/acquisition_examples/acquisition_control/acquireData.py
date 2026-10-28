@@ -338,7 +338,7 @@ def _acquire_data_ver3(data_acquisition, sample_count, block_size,limited_active
     #print("__acquire_data is doing")
     #data = ""
     chunks = []
-    
+    LDVtime = time.time()
     data_acquisition.start_data_acquisition()#計測機器からリングバッファにデータ転送を開始する指示,ここより上を一回だけ読み込んで、これ以下をupdateに持ってくる
     
     base_samples_written = 0
@@ -393,6 +393,7 @@ def _acquire_data_ver3(data_acquisition, sample_count, block_size,limited_active
         data = np.concatenate(chunks)#chunks内にリストが複数あるため、それを一つのリストに結合
     else:
         data = np.array([])#データがなければ空のリスト
+    print(f"LDV time: {LDVtime} s")
     return data
     # [acquire_data]
 

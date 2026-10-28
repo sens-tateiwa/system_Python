@@ -21,6 +21,7 @@ from Polytec_Python.acquisition_examples.acquisition_control import acquireData
 from Polytec_Python.acquisition_examples import changeBandwidthandRange
 
 import multiprocessing
+from collections import deque
 
 
 
@@ -73,7 +74,7 @@ def run(sample_count=2**17, new_bandwidth="1 kHz", new_range="10 mm/s"):
     return file_name
 
 class UseLDV:
-    def __init__(self,cameraGrabingFinish,sample_count, new_bandwidth,new_range,lastdata_queue,isArmMoving):
+    def __init__(self,cameraGrabingFinish,sample_count, new_bandwidth,new_range,lastdata_queue,isArmMoving,withRobot):
         self.ip_address = "192.168.137.1"
 
         self.cameraFinishFlag = cameraGrabingFinish
@@ -81,6 +82,7 @@ class UseLDV:
 
         self.new_bandwidth = new_bandwidth
         self.new_range = new_range
+        self.withRobot = withRobot
 
         self.dt = 1/218750
         self.N=sample_count
@@ -91,7 +93,7 @@ class UseLDV:
         self.anime = None
         self.velocity = ""
         self.lastdata = lastdata_queue
-        self.buffer_list=[]
+        self.buffer_list = deque(maxlen=10)
 
         self.device_communication = None
         self.data_acquisition = None
@@ -132,13 +134,21 @@ class UseLDV:
         
         #ここにロボットアームを動かす処理、ロボットアームの動き終わりまで待機する必要がある？
         while(self.isArmMoving.is_set()):#前回の指令によるロボットアームの動きが終わるまで待機
-            print("RobotArm is moving")
-        self.isArmMoving.set()#ロボットアームを動かす指令を送信
+            #print("RobotArm is moving")
+            time.sleep(0.2)#printの代わりに仮置き
+
+        if self.withRobot:
+            self.isArmMoving.set()#ロボットアームを動かす指令を送信
+        #self.//加速度センサでの計測開始指令を送信するコードを記述（isArmMovingと同タイミングだからフラグを共有してもいいかも）
+
+        #time.sleep(0.15)#グラフから読み取った結果,計測開始からロボットアーム稼働までに0.1~0.15 sのラグがあったため、計測開始をアーム稼働から0.1 s待機
+        time.sleep(0.45)
+        # 上(0.15)は指固定・素材スライドでロボットアームの上下移動がない場合のタイムラグ、
+        # 下(0.55)は素材固定・模型指スライドで指を接触させるためのアームの上下移動がある場合のタイムラグ分のディレイ
         
         velocity_list = acquireData._acquire_data_ver3(self.data_acquisition, self.N, self.block_size,self.limited_active_channels, self.base_samples_chunk_size)
         
         
-
         return velocity_list
 
     def __update(self,frame,t,line):
@@ -154,7 +164,7 @@ class UseLDV:
                 x = line.get_xdata()
                 y = line.get_ydata()
                 """
-                send_data = np.array(self.buffer_list)
+                send_data = np.array(list(self.buffer_list))
                 # 古いデータが残っていれば捨てて（念の為）、新しいデータを入れる
                 # ※ maxsize=1設定なら、putの前にget_nowaitする
                 try:

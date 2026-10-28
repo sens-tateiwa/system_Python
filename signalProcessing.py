@@ -12,6 +12,9 @@ import collections
 from scipy import integrate
 import scipy
 import os
+import datetime
+
+group_num = 3
 
 def gamma(freq):
     values=[[20 , 1.30], 
@@ -135,7 +138,8 @@ def fftplt_indiv(file_name, sample_count, dt):
     """
     
     df = np.loadtxt(file_name+'.txt')
-    df = df * (10**6)#mからμmに単位変換
+    #df = df * (10**6)#mからμmに単位変換
+    df = df * (10**3) #mからmmに変換
     Wn = 50#カットオフ周波数
     order = 4#次数
     filtered_data = butter_highpass_fillter(df, order, Wn,f_s)
@@ -156,13 +160,17 @@ def fftplt_indiv(file_name, sample_count, dt):
     #plt.rcParams["font.size"]=60
     plt.figure()
     plt.xlabel('time [s]')
-    plt.ylabel('Pos [μm]')
-    #plt.ylim(-0.012,0.012)
+    #plt.ylabel('Pos [μm]')
+    plt.ylabel('Pos [mm]')
+    #plt.ylim(-0.05*(10**6),0.05*(10**6))
+    plt.ylim(-50,100)
+    plt.xlim(0.0,0.7)
     #plt.tick_params(labelsize=45)
     #plt.subplots_adjust(0.2,0.15,0.97,0.95)
     t = np.linspace(0,dt*N,N)
     #plt.plot(t, csv_velocity) # 入力信号
     plt.plot(t,df)
+    #plt.tight_layout()
     plt.savefig(file_name+'_Displacement_元データ.png')
     
     """
@@ -529,8 +537,9 @@ def compute_welch_psd_and_plot(file_name, sampling_rate, window_length, overlap_
         
         fft_result = np.fft.rfft(windowed_frame, n=window_length, axis=0) # 実数入力用FFT
         delta_f = sampling_rate/window_length
-        periodogram = (np.abs(fft_result))**2 # 各セグメントのパワースペクトル（ピリオドグラム）を計算、周期信号が対象
-        #periodogram = periodogram/delta_f # 各セグメントのパワースペクトル密度を計算、連続ランダム信号が対象
+        periodogram = (np.abs(fft_result) / window_length)**2 # 各セグメントのパワースペクトル（ピリオドグラム）を計算、周期信号が対象
+        periodogram = periodogram/delta_f # 各セグメントのパワースペクトル密度を計算、連続ランダム信号が対象
+        periodogram[1:-1] *=2.0
         periodograms.append(periodogram)
 
     if not periodograms:
@@ -595,9 +604,10 @@ def compute_welch_psd_and_plot(file_name, sampling_rate, window_length, overlap_
     ax_psd.tick_params(labelbottom=True, labelsize=16)
     #ax_psd.set_ylabel('Power Spectral Density [dB]')
     #ax_psd.set_title("Power Spectral Density (Welch's Method)")
-    ax_psd.set_ylim(40,100)
+    #ax_psd.set_ylim(40,100)
+    ax_psd.set_ylim(-80,20)
     ax_psd.set_ylabel('Power Spectral [dB]')
-    ax_psd.set_title("Power Spectral (Welch's Method)")
+    ax_psd.set_title("Power Spectral Density(Welch's Method)")
     
     # PSDのY軸範囲は自動調整が基本だが、必要に応じて固定値も設定可能 (例: ax_psd.set_ylim(-150, 0))
 
@@ -768,19 +778,88 @@ def plot_group_comparison(freq, group_a_data, group_b_data):
     plt.title('Comparison of Spectral Characteristics (Mean ± SD)')
     plt.legend()
     plt.grid(True)
-    plt.savefig('C:/Users/yuto/Documents/system_python/data/LDVdata/Comparison_of_Spectral.png')
-    plt.show()
+    now = datetime.datetime.now()
+    name = now.strftime("%Y%m%d_%H%M")
+    plt.savefig('C:/Users/yuto/Documents/system_python/data/LDVdata/Comparison_of_Spectral'+name+'.png')
+    #plt.show()
 
-#10個ずつのデータ(file_name_{i:(1~10)}.txt)を持ったfile_nameを2つ準備する。そのfile_name2つをリストにしたfile_name_listを渡す
-def group_comparison(file_name_list,sampling_rate, window_length, overlap_samples=None):
+def plot_group_comparison_ver2(freq, group_psd_db_list, group_psd_sd_list, file_num, labels=None):
+    """
+    freq: 周波数軸 (長さ N の1次元配列)
+    group_data_list: 各グループのデータ配列 (形状 (M, N)) が格納されたリスト
+    group_num: 比較するグループの数 (len(group_data_list) と等しい)
+    labels: 各グループのラベルのリスト (オプション。未指定の場合は Group 1, 2... になります)
+    """
+
+    # 比較する数に合わせて自動で綺麗に色分けするためのカラーマップを設定
+    # (数が多い場合は 'tab10' や 'jet' などを使い分けると便利です)
+    cmap = plt.get_cmap('tab10')
+
+    # labelsが指定されていない、あるいは個数が合わない場合のデフォルトラベル作成
+    if labels is None or len(labels) < file_num:
+        labels = [f"Group {i+1}" for i in range(file_num)]
+
+    plt.figure(figsize=(16, 9))
+    
+    # --- グループ数 (group_num) に応じたループ処理 ---
+    for i in range(file_num):
+        #data = group[i*group_num:(i+1)*group_num]
+        label = labels[i]
+        color = cmap(i)  # グループ番号に応じたカラーを自動取得
+        
+        # 1. 各グループの平均と標準偏差を計算 (axis=0 は「データセット方向」)
+        mean_val = group_psd_db_list[i]
+        std_val = group_psd_sd_list[i]
+        
+        # 2. 平均値を実線でプロット
+        plt.plot(freq, mean_val, color=color, label=f"{label} (Mean)")
+        
+        # 3. 平均 ± 標準偏差 の範囲を塗りつぶす
+        plt.fill_between(
+            freq, 
+            mean_val - std_val, 
+            mean_val + std_val, 
+            color=color, 
+            alpha=0.15,  # グループ数が多いときは重なりを考慮してalphaを少し薄め(0.15など)にするのがおすすめ
+            label=f"{label} (Std Dev)"
+        )
+    
+    # --- グラフの装飾 ---
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Power Spectral [dB]')
+    #plt.xlim(50, 1000)
+    plt.xlim(50, 600)
+    #plt.ylim(40, 100)
+    plt.ylim(-80, 20)
+    plt.title('Comparison of Spectral Characteristics (Mean ± SD)')
+    plt.legend()
+    plt.grid(True)
+    
+    # タイムスタンプ付きで保存
+    now = datetime.datetime.now()
+    name = now.strftime("%Y%m%d_%H%M")
+    save_path = f'C:/Users/yuto/Documents/system_python/data/LDVdata/Comparison_of_Spectral_{name}.png'
+    plt.savefig(save_path)
+    
+    #plt.show()
+
+#group_num個ずつのデータ(file_name_{i:(1~10)}.txt)を持ったfile_nameを2つ準備する。そのfile_name2つをリストにしたfile_name_listを渡す
+def group_comparison(file_name_list,sampling_rate, window_length, labels=None, overlap_samples=None):
     rootDir = 'C:/Users/yuto/Documents/system_python/data/LDVdata/'
-    group = []
+    #group = []
     group_A = []
     group_B = []
+    group_psd_db_list = []
+    group_psd_sd_list = []
+    file_num = 0
     Wn = 50#カットオフ周波数
     order = 4#次数
+
+    
+
     for file in file_name_list:
-        for num in range(10):
+        psds = []
+        for num in range(group_num):
             file_name = file+f"_{num+1}"
             print(f"file_name: {file_name}")
             pos_data = np.loadtxt(rootDir+file_name+'.txt')
@@ -826,24 +905,34 @@ def group_comparison(file_name_list,sampling_rate, window_length, overlap_sample
                 
                 fft_result = np.fft.rfft(windowed_frame, n=window_length, axis=0) # 実数入力用FFT
                 delta_f = sampling_rate/window_length
-                periodogram = (np.abs(fft_result))**2 # 各セグメントのパワースペクトル（ピリオドグラム）を計算、周期信号が対象
-                #periodogram = periodogram/delta_f # 各セグメントのパワースペクトル密度を計算、連続ランダム信号が対象
+                periodogram = (np.abs(fft_result) / window_length)**2 # 各セグメントのパワースペクトル（ピリオドグラム）を計算、周期信号が対象
+                periodogram = periodogram/delta_f # 各セグメントのパワースペクトル密度を計算、連続ランダム信号が対象
+                periodogram[1:-1] *=2.0
                 periodograms.append(periodogram)
-                # スペクトル平均化 (Welch法の中核)
-                # 収集した全てのピリオドグラムを周波数ビンごとに平均化する
-                averaged_psd = np.mean(periodograms, axis=0)
                 
-                # パワースペクトルをdBスケールに変換 (0の対数を避けるため微小値1e-18を加算)
-                P_welch_db = 10 * np.log10(averaged_psd + 1e-18) 
-            
-                #P_welch_db = averaged_psd
+            # スペクトル平均化 (Welch法の中核)
+            # 収集した1計測分の全てのピリオドグラムを周波数ビンごとに平均化する
+            psd = np.mean(periodograms, axis=0)
+            psds.append(psd)
+        averaged_psd = np.mean(psds,axis=0)
 
-            group.append(P_welch_db)
-    group_A = group[:10]
-    group_B = group[10:]
+                
+        # パワースペクトルをdBスケールに変換 (0の対数を避けるため微小値1e-18を加算)
+        P_welch_db = 10 * np.log10(averaged_psd + 1e-18) 
+
+        #n計測行い、１計測分の平均ピリオドグラムを作成して、それらをn個集めて平均、db変換する、標準偏差を計算
+        
+        periodograms_db = [10 * np.log10(p + 1e-18) for p in psds]
+        std_db = np.std(periodograms_db, axis=0)
+
+        group_psd_db_list.append(P_welch_db)
+        group_psd_sd_list.append(std_db)
+        file_num += 1
+
     # 周波数軸の生成
     freq_axis = np.fft.rfftfreq(window_length, 1/sampling_rate)
-    plot_group_comparison(freq_axis, group_A, group_B)
+    #plot_group_comparison(freq_axis, group_A, group_B)
+    plot_group_comparison_ver2(freq_axis, group_psd_db_list, group_psd_sd_list,file_num,labels)
     return 0
 
 """
@@ -896,40 +985,99 @@ if __name__ == "__main__":
 
 #周波数空間ではなく、速度-時間データを機械学習で接触判定、分類もあり
 
-
 if __name__ == "__main__":
     sample_count = 2**17
     dt = 1/218750
     window_length = 2**15
     rootDir = 'C:/Users/yuto/Documents/system_python/data/LDVdata/'
+
     """
-    file_name = "20251215_1144_4"
-    STFT(sample_count, dt, rootDir+file_name, 2**14)
+    file_name = "20260924_1815_1"
+    #STFT(sample_count, dt, rootDir+file_name, 2**14)
     fftplt_indiv(rootDir+file_name, sample_count, dt)
     compute_welch_psd_and_plot(rootDir+file_name, 1/dt, window_length, overlap_samples=None)
     """
+    
+    
     #file_list = ["20251215_1132","20251215_1133","20251215_1134","20251215_1135","20251215_1142","20251215_1144","20251215_2019","20251215_2020","20251215_2022"]
     file_list = ["20251217_1813","20251217_1816","20251217_1818","20251217_1821","20251217_1823","20251217_1825","20251217_1826","20251217_1827","20251217_1829","20251217_2051","20251217_2052"]
     #file_list = ["20251217_2051","20251217_2052"]
     #file_list = ["20251217_1813","20251217_1821"]
     file_list = ["20251223_1852","20251223_1855"]
+    file_list = ["20260512_2012","20260512_2016"]
+    file_list = ["20260512_2050","20260512_2055"]
+    file_list = ["20260513_2310","20260513_2258"]
 
+    file_list = ["0630_04撥水無地クロス_80mms/20260630_1704","0630_04撥水無地クロス_100mms/20260630_1752"]
+    file_list = ["0630_04撥水無地クロス_80mms/20260630_1704","0630_04撥水無地クロス_120mms/20260630_1821"]
+    file_list = ["0630_04撥水無地クロス_100mms/20260630_1752","0630_04撥水無地クロス_120mms/20260630_1821"]
+
+    
+    file_list = ["0630_05プリンセスサテン凹凸少向き_80mms/20260630_1709","0630_05プリンセスサテン凹凸少向き_100mms/20260630_1757"]
+    file_list = ["0630_05プリンセスサテン凹凸少向き_100mms/20260630_1757","0630_05プリンセスサテン凹凸少向き_120mms/20260630_1825"]
+    file_list = ["0630_06プリンセスサテン凹凸多向き_80mms/20260630_1713","0630_06プリンセスサテン凹凸多向き_100mms/20260630_1804"]
+    file_list = ["0630_06プリンセスサテン凹凸多向き_100mms/20260630_1804","0630_06プリンセスサテン凹凸多向き_120mms/20260630_1829"]
+    file_list = ["0630_01フェルト_80mms/20260630_1650",
+                 "0630_02帆布11号_80mms/20260630_1656",
+                 "0630_03スラブ_80mms/20260630_1700",
+                 "0630_04撥水無地クロス_80mms/20260630_1704",
+                 "0630_05プリンセスサテン凹凸少向き_80mms/20260630_1709",
+                 "0630_06プリンセスサテン凹凸多向き_80mms/20260630_1713"]
+    
+    file_list = ["0630_01フェルト_100mms/20260630_1739",
+                 "0630_02帆布11号_100mms/20260630_1743",
+                 "0630_03スラブ_100mms/20260630_1747",
+                 "0630_04撥水無地クロス_100mms/20260630_1752",
+                 "0630_05プリンセスサテン凹凸少向き_100mms/20260630_1757",
+                 "0630_06プリンセスサテン凹凸多向き_100mms/20260630_1804"]
+    
+    file_list = ["0630_01フェルト_120mms/20260630_1808",
+                 "0630_02帆布11号_120mms/20260630_1812",
+                 "0630_03スラブ_120mms/20260630_1817",
+                 "0630_04撥水無地クロス_120mms/20260630_1821",
+                 "0630_05プリンセスサテン凹凸少向き_120mms/20260630_1825",
+                 "0630_06プリンセスサテン凹凸多向き_120mms/20260630_1829"]
+    
+    file_list = ["0817_03スラブ_60mms/20260817_1517",
+                     "0817_04撥水無地クロス_60mms/20260817_1522",
+                     "0817_05プリンセスサテン凹凸少向き_60mms/20260817_1528",
+                     "0817_06プリンセスサテン凹凸多向き_60mms/20260817_1532",
+                     "0817_接触なし_60mms/20260817_1730"]
+    #file_list = ["0630_01フェルト_80mms/20260630_1650","0630_01フェルト_100mms/20260630_1739","0630_01フェルト_120mms/20260630_1808"]
+    #file_list = ["0630_02帆布11号_80mms/20260630_1656","0630_02帆布11号_100mms/20260630_1743","0630_02帆布11号_120mms/20260630_1812"]
+    #file_list = ["0630_03スラブ_80mms/20260630_1700","0630_03スラブ_100mms/20260630_1747","0630_03スラブ_120mms/20260630_1817"]
+    #labels = ["フェルト","11号帆布","スラブ","撥水無地クロス","プリンセスサテン凹凸少向き","プリンセスサテン凹凸多向き"]
+    file_list = ["0630_04撥水無地クロス_80mms/20260630_1704","0630_04撥水無地クロス_100mms/20260630_1752","0630_04撥水無地クロス_120mms/20260630_1821"]
+    file_list = ["0630_05プリンセスサテン凹凸少向き_80mms/20260630_1709","0630_05プリンセスサテン凹凸少向き_100mms/20260630_1757","0630_05プリンセスサテン凹凸少向き_120mms/20260630_1825"]
+    file_list = ["0630_06プリンセスサテン凹凸多向き_80mms/20260630_1713","0630_06プリンセスサテン凹凸多向き_100mms/20260630_1804","0630_06プリンセスサテン凹凸多向き_120mms/20260630_1829"]
+    file_list = ["0928_01フェルト_60mms/20260928_1735","0928_02帆布11号_60mms/20260928_1919","0928_03スラブ_60mms/20260928_1944","0928_04撥水無地クロス_60mms/20260928_1950",
+                 "0928_05プリンセスサテン凹凸少向き_60mms/20260928_1955","0928_06プリンセスサテン凹凸多向き_60mms/20260928_2001"]
+    file_list = ["0817_03スラブ_60mms/20260817_1517",
+                         "0817_04撥水無地クロス_60mms/20260817_1522",
+                         "0817_05プリンセスサテン凹凸少向き_60mms/20260817_1528",
+                         "0817_06プリンセスサテン凹凸多向き_60mms/20260817_1532",
+                         "0817_接触なし_60mms/20260817_1730"]
+    
     group_comparison(file_list,1/dt, window_length, overlap_samples=None)
     velocity_data = []
     filtered_velocity_data = []
     
+    
     for file in file_list:
-        for num in range(10):
+        for num in range(group_num):
             file_name = file+f"_{num+1}"
-            file_name = file+f"_velocity_{num+1}"
-            #STFT(sample_count, dt, rootDir+file_name, 2**14)
-            #fftplt_indiv(rootDir+file_name, sample_count, dt)
-            #compute_welch_psd_and_plot(rootDir+file_name, 1/dt, window_length, overlap_samples=None)
-            data,filtered_data = velocity_average(rootDir+file_name,sample_count, dt)
-            velocity_data.append(data)
-            filtered_velocity_data.append(filtered_data)
-    group_A = velocity_data[:10]
-    group_B = velocity_data[10:]
+            file_name_vel = file+f"_velocity_{num+1}"
+            STFT(sample_count, dt, rootDir+file_name, 2**14)
+            fftplt_indiv(rootDir+file_name, sample_count, dt)
+            compute_welch_psd_and_plot(rootDir+file_name, 1/dt, window_length, overlap_samples=None)
+            #data,filtered_data = velocity_average(rootDir+file_name_vel,sample_count, dt)
+            #velocity_data.append(data)
+            #filtered_velocity_data.append(filtered_data)
+    
+            
+    """
+    group_A = velocity_data[:group_num]
+    group_B = velocity_data[group_num:]
 
     mean_A = np.mean(group_A, axis=0)
     std_A = np.std(group_A, axis=0)
@@ -941,3 +1089,4 @@ if __name__ == "__main__":
     print(f"Sandpaper_#40_velocity_SD    : {std_A*1000} [mm/s]")
     print(f"Sandpaper_#400_velocity_mean : {mean_B *1000} [mm/s]")
     print(f"Sandpaper_#400_velocity_SD   : {std_B*1000} [mm/s]")
+    """

@@ -8,6 +8,7 @@ import controlGUI
 import signalProcessing
 import controlMirror
 import controlRobotArm
+import controlArduino
 
 import sys
 import datetime
@@ -70,7 +71,7 @@ def event_controlLDV_endless(event, sample_count, new_bandwidth, new_range):
     event.wait()
     controlLDV.run_endless(sample_count, new_bandwidth, new_range)
 
-def run_endless():
+def run_endless(withRobot):
     timeout_ms = 5
     timelimit_s = 50
     sample_count=2**17 #2^17 = 131,072
@@ -79,7 +80,7 @@ def run_endless():
     new_range="200 mm/s"    #[range_selection]     Available items: 2 m/s, 1 m/s, 500mm/s, 200 mm/s, 100 mm/s, 50 mm/s, 20 mm/s, 10 mm/s
     isPlotMatchpoint=False
     rootDir = 'C:/Users/yuto/Documents/system_python'
-    laserImage = 'Image__2026-04-27__14-10-10.png'
+    laserImage = 'Image__2026-09-28__17-29-56.png'
     laser_point = imageProcessing.calculateLaserPoint(rootDir+'/'+laserImage)
 
 
@@ -87,17 +88,18 @@ def run_endless():
     cameraGrabingFinish = multiprocessing.Event()#カメラの連続撮影が終了したかどうかのフラグ
     prepareMirror = multiprocessing.Event()      #ミラーが追従開始位置にセットされたかどうかのフラグ
     isArmMoving = multiprocessing.Event()        #ロボットアームが動いている間はsetするフラグ、ロボットが動いていない時はclearする
+    AccelerometerStartAcquiring = multiprocessing.Event() #加速度センサの計測を行うフラグ、ロボットアームの動きと同期させるためのもの
+
 
     prepareLaserPosition = multiprocessing.Queue(maxsize=1)#開始前にGUIで設定したミラーの角度（レーザの位置）を共有するためのqueue
 
     MirrorAngle_queue = multiprocessing.Queue(maxsize=1)
     lastdata_queue = multiprocessing.Queue(maxsize=1)#共有のQueueを作成、できるならshared_memoryの方がよい
+    AccelerometerData_queue = multiprocessing.Queue(maxsize=1)#加速度センサで取得したデータを共有するためのQueue
 
     try:
-        dataAquisition = controlLDV.UseLDV(cameraGrabingFinish,sample_count,new_bandwidth,new_range,lastdata_queue,isArmMoving)
+        dataAquisition = controlLDV.UseLDV(cameraGrabingFinish,sample_count,new_bandwidth,new_range,lastdata_queue,isArmMoving,withRobot)
         dataAquisition_process=multiprocessing.Process(target=dataAquisition.animate, args=())
-
-        useRobotArm_process = multiprocessing.Process(target=controlRobotArm.run_robot_process, args= (cameraGrabingFinish, isArmMoving))
 
         buttonWindow = controlGUI.ButtonWindow(MirrorAngle_queue,prepareLaserPosition,cameraGrabingFinish)
         button_process = multiprocessing.Process(target=buttonWindow.run,args=())
@@ -105,18 +107,25 @@ def run_endless():
         controlMirror_process = multiprocessing.Process(target=controlMirror.mirror_server,args=(MirrorAngle_queue, prepareMirror))
 
         controlCamera_process = multiprocessing.Process(target=controlCamera.getCameraImage_endless, args=(MirrorAngle_queue,prepareLaserPosition,startLDV, cameraGrabingFinish, laser_point,timeout_ms,timelimit_s,isPlotMatchpoint))
+
+        if withRobot:
+            useRobotArm_process = multiprocessing.Process(target=controlRobotArm.run_robot_process, args= (cameraGrabingFinish, isArmMoving,AccelerometerStartAcquiring))
+            useRobotArm_process.start()
+            controlArduino_process = multiprocessing.Process(target=controlArduino.run,args=(AccelerometerStartAcquiring,cameraGrabingFinish,AccelerometerData_queue))
+            controlArduino_process.start()
         
         #buttonの子プロセスでミラーの初期位置を設定しようとしていたが、
         # 2つの子プロセスで同時にミラー（ハードウェア）に接続しようとするとエラーが発生し、片方を初期設定後に切断できなかったため、
         # メインプロセスから2つのプロセス（カメラとGUI）を実行するのではなく、GUIを子プロセスではなく、カメラプロセス内でimportして
         # カメラプロセス（頻繁に高速でミラー制御を行う方のプロセス）内でGUI（ボタン）を表示するclassを実行するように変更した
-        useRobotArm_process.start()
+        
         controlMirror_process.start()
         prepareMirror.wait()#ミラーの接続が確立されるまで待機
 
         button_process.start()
         
         controlCamera_process.start()
+        
 
         #現状：計測を開始する合図はカメラが起動する直前である。カメラ起動前にGUIが表示される
         #GUIによってカメラ起動（計測開始:startLDV.set()）する前に「終了」すると、
@@ -130,12 +139,23 @@ def run_endless():
         print("cameraGrabingFinishFlag is set")
 
         #下のQueueを受け取る部分もデータがあること前提であるため、
-        # 計測開始前に終了するなどのデータがないことを想定した動作が必要
+        # 計測開始前に終了するなどのデータがないことを想定した機能が必要であるが未実装
         acquired_data = lastdata_queue.get()#データを受け取るまで次の行に進まない
         num_data_chunk = acquired_data.shape[0]
         num_one_data = acquired_data.shape[1]
         print(f"num_data_chunck = {num_data_chunk}")
         print(f"num_one_data = {num_one_data}")
+
+        if withRobot:
+            acquired_Accelerometer_data = AccelerometerData_queue.get()#データを受け取るまで次の行に進まない
+            print("Accelerometer data got")
+            num_Accelerometer_data_chunk = len(acquired_Accelerometer_data)
+            if num_Accelerometer_data_chunk > 0:
+                num_Accelerometer_one_data = acquired_Accelerometer_data[0].shape[0]
+            else:
+                num_Accelerometer_one_data = 0
+            print(f"num_Accelerometer_data_chunck = {num_Accelerometer_data_chunk}")
+            print(f"num_Accelerometer_one_data = {num_Accelerometer_one_data}")
 
         #print(x)
         #print(y)
@@ -144,8 +164,11 @@ def run_endless():
         button_process.join()
         controlMirror_process.terminate()
         controlMirror_process.join()
-        useRobotArm_process.terminate()
-        useRobotArm_process.join()
+
+        if withRobot:
+            useRobotArm_process.terminate()
+            useRobotArm_process.join()
+
         while controlCamera_process.is_alive():
             print("creating video")
             time.sleep(1)
@@ -155,6 +178,12 @@ def run_endless():
             print("creating queue")
             time.sleep(1)
         dataAquisition_process.join()#メインプロセスに終わったことを通知する（メインプロセスに合流する）
+
+        if withRobot:
+            while controlArduino_process.is_alive():
+                print("creating Accelerometer_queue")
+                time.sleep(1)
+            controlArduino_process.join()
         
         rootDir = 'C:/Users/yuto/Documents/system_python/data/LDVdata'
         now = datetime.datetime.now()
@@ -170,18 +199,46 @@ def run_endless():
             np.savetxt(file_name_velocity+'.txt',y,fmt='%s')
             fig= plt.figure()
             plt.xlabel('time [s]')
-            plt.ylabel('Displacement [m]')
+            #plt.ylabel('Displacement [m]')
+            plt.ylabel('Velocity [m/s]')
             plt.xlim(0,sample_count*dt+0.01)
             #plt.ylim(-0.0007,0.0007)
+            plt.ylim(-0.1,0.1)
             #plt.tight_layout()
             plt.plot(x,y)
-            plt.savefig(file_name+'.png')
+            plt.tight_layout()
+            plt.savefig(file_name+'.png')#フィルタリング処理をしていないvelocity
             window_length = 2**15
             signalProcessing.STFT(sample_count, dt, file_name, 2**14)
             signalProcessing.fftplt_indiv(file_name, sample_count, dt)
             signalProcessing.compute_welch_psd_and_plot(file_name, 1/dt, window_length, overlap_samples=None)
             #signalProcessing.velocity_average(file_name_velocity, sample_count, dt)
             chunk += 1
+
+        if withRobot:
+            rootDir_Accelerometer = 'C:/Users/yuto/Documents/system_python/data/AccelerometerData'
+            chunk_Accelerometer=1
+            for chunk_Accelerometer_data in acquired_Accelerometer_data:
+                file_name_acceleration = rootDir_Accelerometer + '/' + name + '_acceleration' + f'_{chunk_Accelerometer}'
+                file_name_velocity = rootDir_Accelerometer + '/' + name + '_velocity' +f'_{chunk_Accelerometer}'
+                #y = chunk_Accelerometer_data
+                Accelerometer_data = np.asarray(chunk_Accelerometer_data,dtype=np.float64)
+                t_Accelerometer = Accelerometer_data[:,0]
+                axyz_Accelerometer = Accelerometer_data[:,1:4]
+                diff_t = np.diff(t_Accelerometer)
+                mean_dt_Accelerometer = float(np.mean(diff_t))
+                print(f'mean_dt_Accelerometer = {mean_dt_Accelerometer} s')
+                print(f'sampling rate of Accelerometer = {1/mean_dt_Accelerometer} Hz' )
+
+                dt_intervals = diff_t[:,np.newaxis]
+                trapezoids = 0.5*(axyz_Accelerometer[:-1,:]+axyz_Accelerometer[1:,:])*dt_intervals
+                initial_zeros = np.zeros((1,3))
+                velocity = np.vstack([initial_zeros,np.cumsum(trapezoids,axis=0)])
+                velocity_data = np.hstack([t_Accelerometer[:,np.newaxis],velocity])
+
+                np.savetxt(file_name_acceleration+'.txt', Accelerometer_data,fmt='%s')
+                np.savetxt(file_name_velocity+'.txt',velocity_data,fmt='%s')
+                chunk_Accelerometer += 1
         
         """
         fig= plt.figure()
@@ -200,6 +257,9 @@ def run_endless():
 
         dataAquisition_process.terminate()
         dataAquisition_process.join()
+        if withRobot:
+            controlArduino_process.terminate()
+            controlArduino_process.join()
         #button_process.terminate()
         #button_process.join()
         sys.exit(0)
@@ -213,4 +273,7 @@ def run_endless():
 if __name__ == "__main__":
     #print("Hello world")
     #run()
-    run_endless()
+
+    withRobot = True
+    withRobot = False
+    run_endless(withRobot)

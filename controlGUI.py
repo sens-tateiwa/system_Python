@@ -18,25 +18,25 @@ class ButtonWindow:
 
     def on_button_up_click(self):
         #print("上クリック")
-        self.Y += 0.015
+        self.Y += 0.010
         #controlMirror.changeAngle(self.X,self.Y,self.mre2)
         self.MirrorAngle_queue.put((self.X,self.Y))
 
     def on_button_left_click(self):
         #print("左クリック")
-        self.X -= 0.015
+        self.X -= 0.010
         #controlMirror.changeAngle(self.X,self.Y,self.mre2)
         self.MirrorAngle_queue.put((self.X,self.Y))
 
     def on_button_right_click(self):
         #print("右クリック")
-        self.X += 0.015
+        self.X += 0.010
         #controlMirror.changeAngle(self.X,self.Y,self.mre2)
         self.MirrorAngle_queue.put((self.X,self.Y))
 
     def on_button_down_click(self):
         #print("下クリック")
-        self.Y -= 0.015
+        self.Y -= 0.010
         #controlMirror.changeAngle(self.X,self.Y,self.mre2)
         self.MirrorAngle_queue.put((self.X,self.Y))
 
